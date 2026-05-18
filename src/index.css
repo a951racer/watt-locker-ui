@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-deepNavy: #061B38;
+  --color-midnightBlue: #0D2A4F;
+  --color-steelBlue: #2E4767;
+  --color-electricBlue: #1E7EF2;
+  --color-brightCyan: #3FA9FF;
+  --color-softFog: #7E93AD;
+  --color-lightSilver: #D9E1EA;
+  --color-pureWhite: #FFFFFF;
+}
+
+body {
+  background-color: var(--color-deepNavy);
+  color: var(--color-lightSilver);
+}

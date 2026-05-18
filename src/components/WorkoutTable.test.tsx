@@ -1,0 +1,128 @@
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, it, expect, vi } from 'vitest';
+import WorkoutTable from './WorkoutTable';
+import type { WorkoutTableRow } from '../types/workout';
+
+const mockWorkouts: WorkoutTableRow[] = [
+  {
+    id: '1',
+    date: '2024-03-15',
+    dateRaw: '2024-03-15T08:00:00Z',
+    name: 'Morning Ride',
+    duration: '1h 30m',
+    distance: '40.2 km',
+    avgPower: '220 W',
+    normalizedPower: '235 W',
+  },
+  {
+    id: '2',
+    date: '2024-03-14',
+    dateRaw: '2024-03-14T09:00:00Z',
+    name: 'Interval Session',
+    duration: '0h 45m',
+    distance: '20.1 km',
+    avgPower: '280 W',
+    normalizedPower: '310 W',
+  },
+];
+
+function renderTable(props?: Partial<React.ComponentProps<typeof WorkoutTable>>) {
+  const defaultProps = {
+    workouts: mockWorkouts,
+    sortBy: 'date',
+    sortOrder: 'desc' as const,
+    onSort: vi.fn(),
+    onRowClick: vi.fn(),
+  };
+
+  return render(
+    <MemoryRouter>
+      <WorkoutTable {...defaultProps} {...props} />
+    </MemoryRouter>
+  );
+}
+
+describe('WorkoutTable', () => {
+  it('renders all column headers', () => {
+    renderTable();
+
+    expect(screen.getByText('Date')).toBeInTheDocument();
+    expect(screen.getByText('Name')).toBeInTheDocument();
+    expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByText('Distance')).toBeInTheDocument();
+    expect(screen.getByText('Avg Power')).toBeInTheDocument();
+    expect(screen.getByText('Normalized Power')).toBeInTheDocument();
+  });
+
+  it('renders workout data rows', () => {
+    renderTable();
+
+    expect(screen.getByText('Morning Ride')).toBeInTheDocument();
+    expect(screen.getByText('Interval Session')).toBeInTheDocument();
+    expect(screen.getByText('1h 30m')).toBeInTheDocument();
+    expect(screen.getByText('40.2 km')).toBeInTheDocument();
+    expect(screen.getByText('220 W')).toBeInTheDocument();
+  });
+
+  it('calls onSort when a column header is clicked', () => {
+    const onSort = vi.fn();
+    renderTable({ onSort });
+
+    fireEvent.click(screen.getByText('Name'));
+    expect(onSort).toHaveBeenCalledWith('name');
+
+    fireEvent.click(screen.getByText('Duration'));
+    expect(onSort).toHaveBeenCalledWith('duration');
+  });
+
+  it('displays sort indicator on the active sort column', () => {
+    renderTable({ sortBy: 'date', sortOrder: 'desc' });
+
+    const dateHeader = screen.getByText('Date').closest('th');
+    expect(dateHeader).toHaveAttribute('aria-sort', 'descending');
+    expect(dateHeader?.textContent).toContain('▼');
+  });
+
+  it('displays ascending sort indicator', () => {
+    renderTable({ sortBy: 'name', sortOrder: 'asc' });
+
+    const nameHeader = screen.getByText('Name').closest('th');
+    expect(nameHeader).toHaveAttribute('aria-sort', 'ascending');
+    expect(nameHeader?.textContent).toContain('▲');
+  });
+
+  it('renders Name column as clickable links to workout detail', () => {
+    renderTable();
+
+    const morningRideLink = screen.getByText('Morning Ride');
+    expect(morningRideLink.closest('a')).toHaveAttribute('href', '/workouts/1');
+
+    const intervalLink = screen.getByText('Interval Session');
+    expect(intervalLink.closest('a')).toHaveAttribute('href', '/workouts/2');
+  });
+
+  it('calls onRowClick when a row is clicked', () => {
+    const onRowClick = vi.fn();
+    renderTable({ onRowClick });
+
+    const row = screen.getByText('Morning Ride').closest('tr');
+    fireEvent.click(row!);
+    expect(onRowClick).toHaveBeenCalledWith('1');
+  });
+
+  it('does not call onRowClick when the Name link is clicked', () => {
+    const onRowClick = vi.fn();
+    renderTable({ onRowClick });
+
+    const link = screen.getByText('Morning Ride');
+    fireEvent.click(link);
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('has overflow-x-auto for horizontal scrolling', () => {
+    const { container } = renderTable();
+    const wrapper = container.firstElementChild;
+    expect(wrapper).toHaveClass('overflow-x-auto');
+  });
+});
