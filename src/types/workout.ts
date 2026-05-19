@@ -33,6 +33,7 @@ export interface WorkoutRecord {
   dataSource: string;
   title?: string;
   description?: string;
+  comment?: string;
   tags?: string[];
   createdAt: string;
   updatedAt: string;
