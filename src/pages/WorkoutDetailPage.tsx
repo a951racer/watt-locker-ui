@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkoutStore } from '../store/workoutStore';
 import { formatDate, formatDuration, formatDistance, formatPower } from '../utils/formatting';
 
@@ -33,6 +33,7 @@ function formatTemp(celsius: number | undefined): string {
 
 export default function WorkoutDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { currentWorkout, isLoading, error, fetchWorkout, updateWorkout } = useWorkoutStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -56,12 +57,12 @@ export default function WorkoutDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <p className="text-red-400 text-lg">{error}</p>
-        <Link
-          to="/dashboard"
+        <button
+          onClick={() => navigate(-1)}
           className="px-4 py-2 rounded bg-electricBlue text-pureWhite hover:bg-brightCyan transition-colors"
         >
-          Back to Dashboard
-        </Link>
+          Go Back
+        </button>
       </div>
     );
   }
@@ -70,12 +71,12 @@ export default function WorkoutDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <p className="text-lightSilver text-lg">Workout not found</p>
-        <Link
-          to="/dashboard"
+        <button
+          onClick={() => navigate(-1)}
           className="px-4 py-2 rounded bg-electricBlue text-pureWhite hover:bg-brightCyan transition-colors"
         >
-          Back to Dashboard
-        </Link>
+          Go Back
+        </button>
       </div>
     );
   }
@@ -85,12 +86,12 @@ export default function WorkoutDetailPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
-        <Link
-          to="/dashboard"
+        <button
+          onClick={() => navigate(-1)}
           className="text-brightCyan hover:text-pureWhite transition-colors text-sm"
         >
-          ← Back to Dashboard
-        </Link>
+          ← Back
+        </button>
       </div>
 
       <div className="space-y-1">

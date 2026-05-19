@@ -3,19 +3,21 @@ import type { WorkoutTableRow } from '../types/workout';
 
 interface WorkoutTableProps {
   workouts: WorkoutTableRow[];
-  sortBy: string;
-  sortOrder: 'asc' | 'desc';
-  onSort: (column: string) => void;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  onSort?: (column: string) => void;
   onRowClick: (id: string) => void;
 }
 
-const columns: { key: keyof WorkoutTableRow; label: string }[] = [
-  { key: 'date', label: 'Date' },
-  { key: 'name', label: 'Title' },
-  { key: 'duration', label: 'Duration' },
-  { key: 'distance', label: 'Distance' },
-  { key: 'avgPower', label: 'Avg Power' },
-  { key: 'normalizedPower', label: 'Normalized Power' },
+const columns: { key: string; label: string; sortable: boolean }[] = [
+  { key: 'date', label: 'Date', sortable: true },
+  { key: 'name', label: 'Title', sortable: true },
+  { key: 'tags', label: 'Tags', sortable: false },
+  { key: 'duration', label: 'Duration', sortable: true },
+  { key: 'distance', label: 'Distance', sortable: true },
+  { key: 'avgSpeed', label: 'Avg Speed', sortable: true },
+  { key: 'avgPower', label: 'Avg Power', sortable: true },
+  { key: 'normalizedPower', label: 'Normalized Power', sortable: true },
 ];
 
 function SortIndicator({ column, sortBy, sortOrder }: { column: string; sortBy: string; sortOrder: 'asc' | 'desc' }) {
@@ -28,22 +30,29 @@ function SortIndicator({ column, sortBy, sortOrder }: { column: string; sortBy: 
 }
 
 export default function WorkoutTable({ workouts, sortBy, sortOrder, onSort, onRowClick }: WorkoutTableProps) {
+  const isSortable = !!onSort;
+
   return (
     <div className="overflow-x-auto rounded-lg border border-steelBlue">
-      <table className="w-full min-w-[700px] text-sm text-left">
+      <table className="w-full min-w-[750px] text-sm text-left">
         <thead className="bg-midnightBlue text-softFog uppercase text-xs">
           <tr>
-            {columns.map(({ key, label }) => (
-              <th
-                key={key}
-                className="px-4 py-3 cursor-pointer select-none hover:text-lightSilver transition-colors whitespace-nowrap"
-                onClick={() => onSort(key)}
-                aria-sort={sortBy === key ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
-              >
-                {label}
-                <SortIndicator column={key} sortBy={sortBy} sortOrder={sortOrder} />
-              </th>
-            ))}
+            {columns.map(({ key, label, sortable }) => {
+              const canSort = isSortable && sortable;
+              return (
+                <th
+                  key={key}
+                  className={`px-4 py-3 whitespace-nowrap ${canSort ? 'cursor-pointer select-none hover:text-lightSilver transition-colors' : ''}`}
+                  onClick={canSort ? () => onSort!(key) : undefined}
+                  aria-sort={canSort && sortBy === key ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
+                >
+                  {label}
+                  {canSort && sortBy && sortOrder && (
+                    <SortIndicator column={key} sortBy={sortBy} sortOrder={sortOrder} />
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody className="divide-y divide-steelBlue">
@@ -63,8 +72,21 @@ export default function WorkoutTable({ workouts, sortBy, sortOrder, onSort, onRo
                   {workout.name}
                 </Link>
               </td>
+              <td className="px-4 py-3">
+                <div className="flex gap-1 flex-wrap">
+                  {(workout.tags ?? []).map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-1.5 py-0.5 rounded bg-steelBlue text-lightSilver text-xs"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </td>
               <td className="px-4 py-3 text-lightSilver whitespace-nowrap">{workout.duration}</td>
               <td className="px-4 py-3 text-lightSilver whitespace-nowrap">{workout.distance}</td>
+              <td className="px-4 py-3 text-lightSilver whitespace-nowrap">{workout.avgSpeed}</td>
               <td className="px-4 py-3 text-lightSilver whitespace-nowrap">{workout.avgPower}</td>
               <td className="px-4 py-3 text-lightSilver whitespace-nowrap">{workout.normalizedPower}</td>
             </tr>

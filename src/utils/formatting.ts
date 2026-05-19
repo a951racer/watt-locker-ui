@@ -42,8 +42,10 @@ export function toWorkoutTableRow(record: WorkoutRecord): WorkoutTableRow {
     date: formatDate(record.startTime),
     dateRaw: record.startTime,
     name: record.title || record.activityType || 'Workout',
+    tags: record.tags,
     duration: formatDuration(record.durationSeconds),
     distance: formatDistance(record.distanceMeters),
+    avgSpeed: record.avgSpeedMps != null ? `${(record.avgSpeedMps * 2.23694).toFixed(1)} mph` : 'N/A',
     avgPower: formatPower(record.avgPowerWatts),
     normalizedPower: formatPower(record.normalizedPowerWatts),
   };

@@ -13,6 +13,7 @@ const mockWorkouts: WorkoutTableRow[] = [
     name: 'Morning Ride',
     duration: '1h 30m',
     distance: '40.2 km',
+    avgSpeed: '15.3 mph',
     avgPower: '220 W',
     normalizedPower: '235 W',
   },
