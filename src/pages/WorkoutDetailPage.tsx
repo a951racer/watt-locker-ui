@@ -5,8 +5,8 @@ import { formatDate, formatDuration, formatDistance, formatPower } from '../util
 
 function formatSpeed(mps: number | undefined): string {
   if (mps == null) return 'N/A';
-  const kmh = mps * 3.6;
-  return `${kmh.toFixed(1)} km/h`;
+  const mph = mps * 2.23694;
+  return `${mph.toFixed(1)} mph`;
 }
 
 function formatHeartRate(bpm: number | undefined): string {
@@ -19,10 +19,16 @@ function formatCadence(rpm: number | undefined): string {
   return `${Math.round(rpm)} rpm`;
 }
 
-function formatElevation(meters: number): string {
+function formatElevation(meters: number | undefined): string {
   if (meters == null) return 'N/A';
   const feet = meters * 3.28084;
   return `${Math.round(feet)} ft`;
+}
+
+function formatTemp(celsius: number | undefined): string {
+  if (celsius == null) return 'N/A';
+  const fahrenheit = celsius * 9 / 5 + 32;
+  return `${Math.round(fahrenheit)}°F (${Math.round(celsius)}°C)`;
 }
 
 export default function WorkoutDetailPage() {
@@ -156,25 +162,33 @@ export default function WorkoutDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <DetailCard title="Activity">
           <DetailItem label="Type" value={workout.activityType} />
+          {workout.subActivityType && <DetailItem label="Sub-Type" value={workout.subActivityType} />}
           <DetailItem label="Data Source" value={workout.dataSource} />
+          {workout.calories != null && <DetailItem label="Calories" value={`${workout.calories} kcal`} />}
         </DetailCard>
 
         <DetailCard title="Timing">
           <DetailItem label="Start" value={formatDate(workout.startTime)} />
           <DetailItem label="End" value={formatDate(workout.endTime)} />
-          <DetailItem label="Duration" value={formatDuration(workout.durationSeconds)} />
+          <DetailItem label="Duration (Elapsed)" value={formatDuration(workout.durationSeconds)} />
+          {workout.movingTimeSeconds != null && <DetailItem label="Moving Time" value={formatDuration(workout.movingTimeSeconds)} />}
         </DetailCard>
 
         <DetailCard title="Distance & Elevation">
           <DetailItem label="Distance" value={formatDistance(workout.distanceMeters)} />
           <DetailItem label="Elevation Gain" value={formatElevation(workout.elevationGainMeters)} />
+          {workout.elevationLossMeters != null && <DetailItem label="Elevation Loss" value={formatElevation(workout.elevationLossMeters)} />}
           <DetailItem label="Avg Speed" value={formatSpeed(workout.avgSpeedMps)} />
+          {workout.maxSpeedMps != null && <DetailItem label="Max Speed" value={formatSpeed(workout.maxSpeedMps)} />}
         </DetailCard>
 
         <DetailCard title="Power">
           <DetailItem label="Avg Power" value={formatPower(workout.avgPowerWatts)} />
           <DetailItem label="Normalized Power" value={formatPower(workout.normalizedPowerWatts)} />
           <DetailItem label="Max Power" value={formatPower(workout.maxPowerWatts)} />
+          {workout.totalWorkKj != null && <DetailItem label="Total Work" value={`${workout.totalWorkKj} kJ`} />}
+          {workout.ftpWatts != null && <DetailItem label="FTP" value={`${workout.ftpWatts} W`} />}
+          {workout.intensityFactor != null && <DetailItem label="Intensity Factor" value={workout.intensityFactor.toFixed(3)} />}
           <DetailItem label="TSS" value={workout.tss != null ? `${workout.tss}` : 'N/A'} />
         </DetailCard>
 
@@ -186,7 +200,23 @@ export default function WorkoutDetailPage() {
 
         <DetailCard title="Cadence">
           <DetailItem label="Avg Cadence" value={formatCadence(workout.avgCadenceRpm)} />
+          {workout.maxCadenceRpm != null && <DetailItem label="Max Cadence" value={formatCadence(workout.maxCadenceRpm)} />}
+          {workout.totalPedalRevolutions != null && <DetailItem label="Total Revolutions" value={workout.totalPedalRevolutions.toLocaleString()} />}
         </DetailCard>
+
+        {(workout.avgTemperatureCelsius != null || workout.maxTemperatureCelsius != null) && (
+          <DetailCard title="Temperature">
+            <DetailItem label="Avg Temperature" value={formatTemp(workout.avgTemperatureCelsius)} />
+            <DetailItem label="Max Temperature" value={formatTemp(workout.maxTemperatureCelsius)} />
+          </DetailCard>
+        )}
+
+        {(workout.aerobicTrainingEffect != null || workout.anaerobicTrainingEffect != null) && (
+          <DetailCard title="Training Effect">
+            {workout.aerobicTrainingEffect != null && <DetailItem label="Aerobic" value={workout.aerobicTrainingEffect.toFixed(1)} />}
+            {workout.anaerobicTrainingEffect != null && <DetailItem label="Anaerobic" value={workout.anaerobicTrainingEffect.toFixed(1)} />}
+          </DetailCard>
+        )}
       </div>
 
       <div className="rounded-lg bg-midnightBlue border border-steelBlue p-4 space-y-2">
