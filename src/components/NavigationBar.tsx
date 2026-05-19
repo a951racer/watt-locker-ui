@@ -61,13 +61,6 @@ export default function NavigationBar() {
       <span className="ml-auto text-lightSilver italic text-xl font-bold">
         Watt Locker
       </span>
-
-      <button
-        onClick={handleLogout}
-        className="ml-6 text-sm text-softFog hover:text-pureWhite transition-colors"
-      >
-        Logout
-      </button>
     </nav>
   );
 }
