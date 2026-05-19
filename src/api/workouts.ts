@@ -88,3 +88,15 @@ export async function importWorkoutsCsv(csv: string): Promise<{ total: number; u
   const { data } = await apiClient.post<ApiEnvelope<{ total: number; updated: number; skipped: number; failed: Array<{ row: number; id: string; reason: string }> }>>('/workouts/import', { csv });
   return data.data;
 }
+
+export interface PerformanceMetric {
+  date: string;
+  ctl: number;
+  atl: number;
+  tsb: number;
+}
+
+export async function getPerformanceMetrics(days: number = 90): Promise<PerformanceMetric[]> {
+  const { data } = await apiClient.get<ApiEnvelope<PerformanceMetric[]>>('/workouts/performance-metrics', { params: { days } });
+  return data.data;
+}
