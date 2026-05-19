@@ -117,7 +117,7 @@ Watt Locker UI is a React-based single-page application for a fitness/cycling pl
 1. THE Dashboard SHALL be the default page after successful login
 2. THE Dashboard SHALL display two rows of performance charts above the Workout_Table
 3. THE first chart row SHALL display: Weekly Miles, Weekly Duration, and Weekly Avg NP (all for previous 8 weeks)
-4. THE second chart row SHALL display: Avg NP vs Avg HR, Pw:Hr Decoupling (last 10 workouts), and Weekly TSS
+4. THE second chart row SHALL display: Avg NP vs Avg HR, Pw:Hr Decoupling (last 10 workouts), and Total TSS per week
 5. THE Workout_Table SHALL display the following columns: Date, Title, Duration, Distance, Avg Power, and Normalized Power
 6. THE Workout_Table SHALL support sorting by any column when the column header is clicked
 7. THE Workout_Table SHALL sort by raw ISO date values (not formatted display strings) for the Date column

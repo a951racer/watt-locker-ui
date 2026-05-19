@@ -216,7 +216,7 @@ The UI's API modules unwrap this envelope, returning only the `data` payload.
 |-------|------|------|-------|
 | Avg NP vs Avg HR | Dual-axis Line | NP (left, amber) + HR (right, red) per week | Amber + Red |
 | Pw:Hr Decoupling | Line | Last 10 workouts, reference lines at 0% (green) and 5% (yellow) | Purple |
-| Weekly TSS | Bar | Average TSS per week (8 weeks) | Green |
+| Weekly TSS | Bar | Total TSS per week (8 weeks) | Green |
 
 All charts use Recharts with consistent dark theme styling (midnightBlue backgrounds, steelBlue grid lines, softFog axis text).
 
