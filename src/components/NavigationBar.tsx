@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 
 const navLinks = [
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard' },
+  { key: 'workouts', label: 'Workouts', path: '/workouts' },
   { key: 'locker', label: 'Locker', path: '/locker' },
   { key: 'admin', label: 'Admin', path: '/admin' },
 ] as const;

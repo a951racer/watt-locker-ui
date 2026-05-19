@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useWorkoutStore } from '../store/workoutStore';
 import WorkoutTable from '../components/WorkoutTable';
-import Pagination from '../components/Pagination';
 import WeeklyMilesChart from '../components/WeeklyMilesChart';
 import WeeklyDurationChart from '../components/WeeklyDurationChart';
 import WeeklyNPChart from '../components/WeeklyNPChart';
@@ -11,50 +10,22 @@ import RecentDecouplingChart from '../components/RecentDecouplingChart';
 import WeeklyTSSChart from '../components/WeeklyTSSChart';
 import { toWorkoutTableRow } from '../utils/formatting';
 import { sortWorkouts } from '../utils/sorting';
-import { computeTotalPages } from '../utils/pagination';
-import type { WorkoutTableRow } from '../types/workout';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const {
-    workouts,
-    pagination,
-    sortBy,
-    sortOrder,
-    currentPage,
-    isLoading,
-    error,
-    fetchWorkouts,
-    setSort,
-    setPage,
-  } = useWorkoutStore();
+  const { workouts, isLoading, error, fetchWorkouts } = useWorkoutStore();
 
   useEffect(() => {
     fetchWorkouts();
-  }, [fetchWorkouts, currentPage]);
-
-  const handleSort = (column: string) => {
-    if (column === sortBy) {
-      setSort(column, sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSort(column, 'asc');
-    }
-  };
-
-  const handlePageChange = (page: number) => {
-    setPage(page);
-  };
+  }, [fetchWorkouts]);
 
   const handleRowClick = (id: string) => {
     navigate(`/workouts/${id}`);
   };
 
-  const tableRows: WorkoutTableRow[] = workouts.map(toWorkoutTableRow);
-  const sortedRows = sortWorkouts(tableRows, sortBy as keyof WorkoutTableRow, sortOrder);
-
-  const totalPages = pagination
-    ? computeTotalPages(pagination.totalItems, pagination.pageSize)
-    : 0;
+  // Show most recent 25 workouts, sorted by date descending
+  const tableRows = workouts.map(toWorkoutTableRow);
+  const sortedRows = sortWorkouts(tableRows, 'date', 'desc').slice(0, 25);
 
   if (isLoading) {
     return (
@@ -96,20 +67,21 @@ export default function DashboardPage() {
         <WeeklyTSSChart workouts={workouts} />
       </div>
 
+      {/* Recent workouts */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-lightSilver">Recent Workouts</h2>
+        <Link
+          to="/workouts"
+          className="text-sm px-4 py-2 rounded bg-electricBlue text-pureWhite hover:bg-brightCyan transition-colors"
+        >
+          View All Workouts
+        </Link>
+      </div>
+
       <WorkoutTable
         workouts={sortedRows}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSort={handleSort}
         onRowClick={handleRowClick}
       />
-      {totalPages > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-        />
-      )}
     </div>
   );
 }

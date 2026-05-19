@@ -43,8 +43,10 @@ export interface WorkoutTableRow {
   date: string;
   dateRaw: string; // ISO string for sorting
   name: string;
+  tags?: string[];
   duration: string;
   distance: string;
+  avgSpeed: string;
   avgPower: string;
   normalizedPower: string;
 }
