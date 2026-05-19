@@ -13,7 +13,7 @@ export interface WorkoutState {
   error: string | null;
   fetchWorkouts: () => Promise<void>;
   fetchWorkout: (id: string) => Promise<void>;
-  updateWorkout: (id: string, updates: { title?: string }) => Promise<void>;
+  updateWorkout: (id: string, updates: { title?: string; tags?: string[] }) => Promise<void>;
   setSort: (column: string, order: 'asc' | 'desc') => void;
   setPage: (page: number) => void;
 }
@@ -56,7 +56,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     }
   },
 
-  updateWorkout: async (id: string, updates: { title?: string }) => {
+  updateWorkout: async (id: string, updates: { title?: string; tags?: string[] }) => {
     try {
       const updated = await workoutsApi.updateWorkout(id, updates);
       set({ currentWorkout: updated });
