@@ -18,6 +18,7 @@ export interface WorkoutRecord {
   normalizedPowerWatts?: number;
   totalWorkKj?: number;
   ftpWatts?: number;
+  ftpUsed?: number;
   intensityFactor?: number;
   tss?: number;
   aerobicDecoupling?: number;

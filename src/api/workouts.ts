@@ -100,3 +100,8 @@ export async function getPerformanceMetrics(days: number = 90): Promise<Performa
   const { data } = await apiClient.get<ApiEnvelope<PerformanceMetric[]>>('/workouts/performance-metrics', { params: { days } });
   return data.data;
 }
+
+export async function recalculateWorkouts(): Promise<{ total: number; updated: number; failed: number }> {
+  const { data } = await apiClient.post<ApiEnvelope<{ total: number; updated: number; failed: number }>>('/workouts/recalculate');
+  return data.data;
+}
