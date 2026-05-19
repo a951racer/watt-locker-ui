@@ -46,10 +46,15 @@ export interface WorkoutTableRow {
   name: string;
   tags?: string[];
   duration: string;
+  durationRaw: number; // seconds for sorting
   distance: string;
+  distanceRaw: number; // meters for sorting
   avgSpeed: string;
+  avgSpeedRaw: number; // m/s for sorting
   avgPower: string;
+  avgPowerRaw: number; // watts for sorting
   normalizedPower: string;
+  normalizedPowerRaw: number; // watts for sorting
 }
 
 export interface PaginationMeta {

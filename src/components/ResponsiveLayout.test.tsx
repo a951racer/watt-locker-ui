@@ -12,10 +12,15 @@ const mockWorkouts: WorkoutTableRow[] = [
     dateRaw: '2024-03-15T08:00:00Z',
     name: 'Morning Ride',
     duration: '1h 30m',
+    durationRaw: 5400,
     distance: '40.2 km',
+    distanceRaw: 40200,
     avgSpeed: '15.3 mph',
+    avgSpeedRaw: 6.84,
     avgPower: '220 W',
+    avgPowerRaw: 220,
     normalizedPower: '235 W',
+    normalizedPowerRaw: 235,
   },
 ];
 

@@ -94,6 +94,7 @@ export default function LockerPage() {
               className="hidden"
               onChange={handleSingleUpload}
               disabled={singleLoading}
+              accept=".fit,.gpx,.tcx,.zip,.gz"
               aria-label="Single file upload"
             />
           </label>
@@ -121,6 +122,7 @@ export default function LockerPage() {
               className="hidden"
               onChange={handleBulkUpload}
               disabled={bulkLoading}
+              accept=".fit,.gpx,.tcx,.zip,.gz"
               aria-label="Bulk file upload"
             />
           </label>
