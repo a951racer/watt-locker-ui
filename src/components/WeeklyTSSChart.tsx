@@ -40,14 +40,14 @@ export default function WeeklyTSSChart({ workouts }: WeeklyTSSChartProps) {
         return d >= weekStart && d < weekEnd && w.tss != null;
       });
 
-      const avgTSS =
+      const totalTSS =
         weekWorkouts.length > 0
-          ? Math.round(weekWorkouts.reduce((sum, w) => sum + (w.tss ?? 0), 0) / weekWorkouts.length)
+          ? Math.round(weekWorkouts.reduce((sum, w) => sum + (w.tss ?? 0), 0))
           : 0;
 
       return {
         week: formatWeekLabel(weekStart),
-        tss: avgTSS,
+        tss: totalTSS,
       };
     });
   }, [workouts]);
@@ -55,7 +55,7 @@ export default function WeeklyTSSChart({ workouts }: WeeklyTSSChartProps) {
   return (
     <div className="bg-midnightBlue/80 rounded-xl p-4 border border-steelBlue/50">
       <h3 className="text-sm font-semibold text-softFog uppercase tracking-wide mb-3">
-        Avg TSS per Week (Last 8 Weeks)
+        Total TSS per Week (Last 8 Weeks)
       </h3>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -79,7 +79,7 @@ export default function WeeklyTSSChart({ workouts }: WeeklyTSSChartProps) {
               borderRadius: '8px',
               color: '#D9E1EA',
             }}
-            formatter={(value) => [`${value}`, 'Avg TSS']}
+            formatter={(value) => [`${value}`, 'Total TSS']}
           />
           <Bar dataKey="tss" fill="#10B981" radius={[4, 4, 0, 0]} />
         </BarChart>
