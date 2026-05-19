@@ -1,5 +1,6 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getActiveNavItem } from '../utils/navigation';
+import { useAuthStore } from '../store/authStore';
 
 const navLinks = [
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard' },
@@ -9,7 +10,14 @@ const navLinks = [
 
 export default function NavigationBar() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const logout = useAuthStore((state) => state.logout);
   const activeItem = getActiveNavItem(pathname);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <nav className="bg-midnightBlue w-full px-6 flex items-center h-14 shrink-0">
@@ -44,6 +52,13 @@ export default function NavigationBar() {
       <span className="ml-auto text-lightSilver italic text-xl font-bold">
         Watt Locker
       </span>
+
+      <button
+        onClick={handleLogout}
+        className="ml-6 text-sm text-softFog hover:text-pureWhite transition-colors"
+      >
+        Logout
+      </button>
     </nav>
   );
 }
