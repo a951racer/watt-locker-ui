@@ -36,6 +36,7 @@ export default function WorkoutDetailPage() {
   const { currentWorkout, isLoading, error, fetchWorkout, updateWorkout } = useWorkoutStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
+  const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -145,18 +146,54 @@ export default function WorkoutDetailPage() {
         {workout.description && (
           <p className="text-softFog text-sm">{workout.description}</p>
         )}
-        {workout.tags && workout.tags.length > 0 && (
-          <div className="flex gap-2 flex-wrap mt-2">
-            {workout.tags.map((tag) => (
-              <span
-                key={tag}
-                className="px-2 py-0.5 rounded bg-steelBlue text-lightSilver text-xs"
+        <div className="flex gap-2 flex-wrap mt-2 items-center">
+          {(workout.tags ?? []).map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-steelBlue text-lightSilver text-xs"
+            >
+              {tag}
+              <button
+                onClick={async () => {
+                  const updatedTags = (workout.tags ?? []).filter((t) => t !== tag);
+                  await updateWorkout(workout.id, { tags: updatedTags });
+                }}
+                className="text-softFog hover:text-red-400 transition ml-0.5"
+                aria-label={`Remove tag ${tag}`}
               >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+                ×
+              </button>
+            </span>
+          ))}
+          <form
+            className="inline-flex items-center gap-1"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const trimmed = newTag.trim();
+              if (!trimmed) return;
+              if ((workout.tags ?? []).includes(trimmed)) {
+                setNewTag('');
+                return;
+              }
+              await updateWorkout(workout.id, { tags: [...(workout.tags ?? []), trimmed] });
+              setNewTag('');
+            }}
+          >
+            <input
+              type="text"
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              placeholder="Add tag..."
+              className="px-2 py-0.5 rounded bg-steelBlue/50 border border-steelBlue text-pureWhite text-xs placeholder-softFog focus:outline-none focus:ring-1 focus:ring-electricBlue w-24"
+            />
+            <button
+              type="submit"
+              className="text-xs px-2 py-0.5 rounded bg-electricBlue text-pureWhite hover:bg-brightCyan transition"
+            >
+              +
+            </button>
+          </form>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
