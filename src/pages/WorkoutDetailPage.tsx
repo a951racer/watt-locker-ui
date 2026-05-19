@@ -38,6 +38,8 @@ export default function WorkoutDetailPage() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [isEditingComment, setIsEditingComment] = useState(false);
+  const [editComment, setEditComment] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -195,6 +197,62 @@ export default function WorkoutDetailPage() {
             </button>
           </form>
         </div>
+      </div>
+
+      {/* Comment section */}
+      <div className="rounded-lg bg-midnightBlue/60 border border-steelBlue/50 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-sm font-semibold text-softFog uppercase tracking-wide">Comment</h2>
+          {!isEditingComment && (
+            <button
+              onClick={() => {
+                setEditComment(workout.comment || '');
+                setIsEditingComment(true);
+              }}
+              className="text-softFog hover:text-lightSilver transition text-sm"
+              aria-label="Edit comment"
+            >
+              ✏️
+            </button>
+          )}
+        </div>
+        {isEditingComment ? (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await updateWorkout(workout.id, { comment: editComment });
+              setIsEditingComment(false);
+            }}
+          >
+            <textarea
+              value={editComment}
+              onChange={(e) => setEditComment(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg bg-steelBlue/50 border border-steelBlue text-pureWhite placeholder-softFog text-sm focus:outline-none focus:ring-2 focus:ring-electricBlue resize-y"
+              placeholder="Add a comment about this workout..."
+              autoFocus
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                type="submit"
+                className="text-sm px-3 py-1 rounded bg-electricBlue text-pureWhite hover:bg-brightCyan transition"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingComment(false)}
+                className="text-sm px-3 py-1 rounded bg-steelBlue text-lightSilver hover:bg-softFog transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <p className="text-sm text-lightSilver whitespace-pre-wrap">
+            {workout.comment || <span className="text-softFog italic">No comment</span>}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
