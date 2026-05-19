@@ -283,7 +283,8 @@ export default function WorkoutDetailPage() {
           <DetailItem label="Normalized Power" value={formatPower(workout.normalizedPowerWatts)} />
           <DetailItem label="Max Power" value={formatPower(workout.maxPowerWatts)} />
           {workout.totalWorkKj != null && <DetailItem label="Total Work" value={`${workout.totalWorkKj} kJ`} />}
-          {workout.ftpWatts != null && <DetailItem label="FTP" value={`${workout.ftpWatts} W`} />}
+          {workout.ftpUsed != null && <DetailItem label="FTP (Used)" value={`${workout.ftpUsed} W`} />}
+          {workout.ftpWatts != null && workout.ftpWatts !== workout.ftpUsed && <DetailItem label="FTP (Device)" value={`${workout.ftpWatts} W`} />}
           {workout.intensityFactor != null && <DetailItem label="Intensity Factor" value={workout.intensityFactor.toFixed(3)} />}
           <DetailItem label="TSS" value={workout.tss != null ? `${workout.tss}` : 'N/A'} />
         </DetailCard>

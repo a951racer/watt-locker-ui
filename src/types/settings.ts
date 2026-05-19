@@ -9,5 +9,6 @@ export interface UserSettings {
   driveStoragePath: string;
   driveInboxPath: string;
   connectedSources: ConnectedSource[];
+  ftpHistory?: Array<{ effectiveDate: string; ftpWatts: number }>;
   updatedAt: string;
 }
