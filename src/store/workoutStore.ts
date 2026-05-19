@@ -18,7 +18,7 @@ export interface WorkoutState {
   setPage: (page: number) => void;
 }
 
-export const useWorkoutStore = create<WorkoutState>((set, get) => ({
+export const useWorkoutStore = create<WorkoutState>((set) => ({
   workouts: [],
   pagination: null,
   currentWorkout: null,
