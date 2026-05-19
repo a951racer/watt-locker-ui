@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useWorkoutStore } from '../store/workoutStore';
 import WorkoutTable from '../components/WorkoutTable';
+import PerformanceChart from '../components/PerformanceChart';
 import WeeklyMilesChart from '../components/WeeklyMilesChart';
 import WeeklyDurationChart from '../components/WeeklyDurationChart';
 import WeeklyNPChart from '../components/WeeklyNPChart';
@@ -23,9 +24,9 @@ export default function DashboardPage() {
     navigate(`/workouts/${id}`);
   };
 
-  // Show most recent 25 workouts, sorted by date descending
+  // Show most recent 10 workouts, sorted by date descending
   const tableRows = workouts.map(toWorkoutTableRow);
-  const sortedRows = sortWorkouts(tableRows, 'date', 'desc').slice(0, 25);
+  const sortedRows = sortWorkouts(tableRows, 'date', 'desc').slice(0, 10);
 
   if (isLoading) {
     return (
@@ -52,6 +53,9 @@ export default function DashboardPage() {
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold text-pureWhite">Dashboard</h1>
+
+      {/* Performance Chart (CTL/ATL/TSB) */}
+      <PerformanceChart />
 
       {/* Charts row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
