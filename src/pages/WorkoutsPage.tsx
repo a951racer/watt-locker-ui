@@ -24,7 +24,7 @@ export default function WorkoutsPage() {
   const [isImporting, setIsImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  const pageSize = 40;
+  const pageSize = 20;
 
   useEffect(() => {
     fetchWorkouts();

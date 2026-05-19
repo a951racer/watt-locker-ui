@@ -44,9 +44,14 @@ export function toWorkoutTableRow(record: WorkoutRecord): WorkoutTableRow {
     name: record.title || record.activityType || 'Workout',
     tags: record.tags,
     duration: formatDuration(record.durationSeconds),
+    durationRaw: record.durationSeconds ?? 0,
     distance: formatDistance(record.distanceMeters),
+    distanceRaw: record.distanceMeters ?? 0,
     avgSpeed: record.avgSpeedMps != null ? `${(record.avgSpeedMps * 2.23694).toFixed(1)} mph` : 'N/A',
+    avgSpeedRaw: record.avgSpeedMps ?? 0,
     avgPower: formatPower(record.avgPowerWatts),
+    avgPowerRaw: record.avgPowerWatts ?? 0,
     normalizedPower: formatPower(record.normalizedPowerWatts),
+    normalizedPowerRaw: record.normalizedPowerWatts ?? 0,
   };
 }

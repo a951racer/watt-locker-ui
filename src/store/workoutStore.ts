@@ -29,12 +29,11 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   error: null,
 
   fetchWorkouts: async () => {
-    const { currentPage } = get();
     set({ isLoading: true, error: null });
     try {
       const result = await workoutsApi.listWorkouts({
-        page: currentPage,
-        pageSize: 25,
+        page: 1,
+        pageSize: 1000,
         sortBy: 'date',
         sortOrder: 'desc',
       });
