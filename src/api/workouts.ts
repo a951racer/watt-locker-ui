@@ -75,3 +75,16 @@ export async function updateWorkout(id: string, updates: { title?: string; descr
   const { data } = await apiClient.put<ApiEnvelope<WorkoutRecord>>(`/workouts/${id}`, updates);
   return data.data;
 }
+
+export async function exportWorkoutsCsv(params?: { dateFrom?: string; dateTo?: string }): Promise<string> {
+  const queryParams: Record<string, string> = {};
+  if (params?.dateFrom) queryParams.dateFrom = params.dateFrom;
+  if (params?.dateTo) queryParams.dateTo = params.dateTo;
+  const { data } = await apiClient.get('/workouts/export', { params: queryParams, responseType: 'text' });
+  return data as unknown as string;
+}
+
+export async function importWorkoutsCsv(csv: string): Promise<{ total: number; updated: number; skipped: number; failed: Array<{ row: number; id: string; reason: string }> }> {
+  const { data } = await apiClient.post<ApiEnvelope<{ total: number; updated: number; skipped: number; failed: Array<{ row: number; id: string; reason: string }> }>>('/workouts/import', { csv });
+  return data.data;
+}

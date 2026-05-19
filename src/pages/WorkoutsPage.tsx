@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkoutStore } from '../store/workoutStore';
 import WorkoutTable from '../components/WorkoutTable';
@@ -6,6 +6,7 @@ import Pagination from '../components/Pagination';
 import { toWorkoutTableRow } from '../utils/formatting';
 import { sortWorkouts } from '../utils/sorting';
 import { computeTotalPages } from '../utils/pagination';
+import { exportWorkoutsCsv, importWorkoutsCsv } from '../api/workouts';
 import type { WorkoutTableRow } from '../types/workout';
 
 export default function WorkoutsPage() {
@@ -19,6 +20,9 @@ export default function WorkoutsPage() {
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
   const [filterTag, setFilterTag] = useState('');
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const pageSize = 40;
 
@@ -38,6 +42,44 @@ export default function WorkoutsPage() {
 
   const handleRowClick = (id: string) => {
     navigate(`/workouts/${id}`);
+  };
+
+  const handleExport = async () => {
+    try {
+      const csv = await exportWorkoutsCsv({
+        dateFrom: filterDateFrom || undefined,
+        dateTo: filterDateTo || undefined,
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'workouts-export.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setImportStatus('Export failed');
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportStatus(null);
+    setIsImporting(true);
+    try {
+      const text = await file.text();
+      const result = await importWorkoutsCsv(text);
+      const msg = `${result.updated} updated, ${result.skipped} skipped, ${result.failed.length} failed`;
+      setImportStatus(msg);
+      if (result.updated > 0) fetchWorkouts();
+    } catch {
+      setImportStatus('Import failed');
+    } finally {
+      setIsImporting(false);
+    }
+    if (importInputRef.current) importInputRef.current.value = '';
   };
 
   // Apply filters
@@ -93,7 +135,34 @@ export default function WorkoutsPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold text-pureWhite">Workouts</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-pureWhite">Workouts</h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExport}
+            className="text-sm px-4 py-2 rounded bg-steelBlue text-lightSilver hover:bg-softFog transition"
+          >
+            Export CSV
+          </button>
+          <label className={`text-sm px-4 py-2 rounded transition ${isImporting ? 'bg-steelBlue/50 text-softFog cursor-not-allowed' : 'bg-steelBlue text-lightSilver hover:bg-softFog cursor-pointer'}`}>
+            {isImporting ? 'Importing...' : 'Import CSV'}
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleImport}
+              disabled={isImporting}
+            />
+          </label>
+        </div>
+      </div>
+
+      {importStatus && (
+        <div className="p-3 rounded-lg bg-electricBlue/20 border border-electricBlue/50 text-lightSilver text-sm">
+          {importStatus}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-end bg-midnightBlue/60 rounded-lg p-4 border border-steelBlue/50">
