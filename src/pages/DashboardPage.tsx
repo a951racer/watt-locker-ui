@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useWorkoutStore } from '../store/workoutStore';
 import PerformanceChart from '../components/PerformanceChart';
+import SummaryStats from '../components/SummaryStats';
 import WeeklyMilesChart from '../components/WeeklyMilesChart';
 import WeeklyDurationChart from '../components/WeeklyDurationChart';
 import WeeklyNPChart from '../components/WeeklyNPChart';
@@ -40,6 +41,9 @@ export default function DashboardPage() {
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold text-pureWhite">Dashboard</h1>
+
+      {/* Summary Stats */}
+      <SummaryStats workouts={workouts} />
 
       {/* Performance Chart (CTL/ATL/TSB) */}
       <PerformanceChart />
