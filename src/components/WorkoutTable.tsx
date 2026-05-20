@@ -13,7 +13,7 @@ const columns: { key: string; label: string; sortable: boolean }[] = [
   { key: 'date', label: 'Date', sortable: true },
   { key: 'name', label: 'Title', sortable: true },
   { key: 'tags', label: 'Tags', sortable: false },
-  { key: 'duration', label: 'Duration', sortable: true },
+  { key: 'duration', label: 'Moving Time', sortable: true },
   { key: 'distance', label: 'Distance', sortable: true },
   { key: 'avgSpeed', label: 'Avg Speed', sortable: true },
   { key: 'avgPower', label: 'Avg Power', sortable: true },
