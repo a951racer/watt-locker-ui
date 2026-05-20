@@ -97,7 +97,8 @@ export default function WorkoutDetailPage() {
       </div>
 
       <div className="space-y-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
           {isEditingTitle ? (
             <form
               className="flex items-center gap-2"
@@ -145,6 +146,10 @@ export default function WorkoutDetailPage() {
               </button>
             </>
           )}
+          </div>
+          <span className="text-2xl font-bold text-pureWhite">
+            {formatDate(workout.startTime)}
+          </span>
         </div>
         {workout.description && (
           <p className="text-softFog text-sm">{workout.description}</p>
