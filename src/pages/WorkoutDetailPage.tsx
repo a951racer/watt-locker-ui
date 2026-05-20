@@ -330,6 +330,25 @@ export default function WorkoutDetailPage() {
           <DetailItem label="Updated" value={formatDate(workout.updatedAt)} />
         </div>
       </div>
+
+      {/* Delete Workout */}
+      <div className="pt-4 border-t border-steelBlue/30">
+        <button
+          onClick={async () => {
+            if (!window.confirm('Are you sure you want to delete this workout? This cannot be undone.')) return;
+            try {
+              const { deleteWorkout } = await import('../api/workouts');
+              await deleteWorkout(workout.id, false);
+              navigate(-1);
+            } catch {
+              // Error handling — could show a toast
+            }
+          }}
+          className="px-4 py-2 rounded bg-red-600/80 text-pureWhite text-sm font-medium hover:bg-red-500 transition"
+        >
+          Delete Workout
+        </button>
+      </div>
     </div>
   );
 }
