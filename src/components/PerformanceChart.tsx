@@ -2,23 +2,36 @@ import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts';
 import { getPerformanceMetrics, type PerformanceMetric } from '../api/workouts';
 
+const timeOptions = [
+  { label: '3 Months', days: 90 },
+  { label: '6 Months', days: 180 },
+  { label: '1 Year', days: 365 },
+  { label: 'All Time', days: 0 },
+] as const;
+
 export default function PerformanceChart() {
   const [data, setData] = useState<PerformanceMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedDays, setSelectedDays] = useState(90);
 
   useEffect(() => {
     async function fetch() {
+      setIsLoading(true);
       try {
-        const metrics = await getPerformanceMetrics(90);
+        // For "All Time", request 3650 days (10 years — API max)
+        const days = selectedDays === 0 ? 3650 : selectedDays;
+        const metrics = await getPerformanceMetrics(days);
         setData(metrics);
       } catch {
-        // Silently fail — chart just won't render data
+        // Silently fail
       } finally {
         setIsLoading(false);
       }
     }
     fetch();
-  }, []);
+  }, [selectedDays]);
+
+  const activeLabel = timeOptions.find((o) => o.days === selectedDays)?.label ?? '3 Months';
 
   if (isLoading) {
     return (
@@ -30,10 +43,27 @@ export default function PerformanceChart() {
 
   return (
     <div className="bg-midnightBlue/80 rounded-xl p-4 border border-steelBlue/50">
-      <h3 className="text-sm font-semibold text-softFog uppercase tracking-wide mb-3">
-        Fitness / Fatigue / Form (90 Days)
-      </h3>
-      <ResponsiveContainer width="100%" height={220}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-softFog uppercase tracking-wide">
+          Fitness / Fatigue / Form ({activeLabel})
+        </h3>
+        <div className="flex gap-1">
+          {timeOptions.map(({ label, days }) => (
+            <button
+              key={days}
+              onClick={() => setSelectedDays(days)}
+              className={`px-3 py-1 rounded text-xs font-medium transition ${
+                selectedDays === days
+                  ? 'bg-electricBlue text-pureWhite'
+                  : 'bg-steelBlue/50 text-softFog hover:text-lightSilver'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={440}>
         <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#2E4767" />
           <XAxis
