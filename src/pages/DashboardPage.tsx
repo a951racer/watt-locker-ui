@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useWorkoutStore } from '../store/workoutStore';
 import PerformanceChart from '../components/PerformanceChart';
 import SummaryStats from '../components/SummaryStats';
+import MonthlyMileageChart from '../components/MonthlyMileageChart';
 import WeeklyMilesChart from '../components/WeeklyMilesChart';
 import WeeklyDurationChart from '../components/WeeklyDurationChart';
 import WeeklyNPChart from '../components/WeeklyNPChart';
@@ -47,6 +48,9 @@ export default function DashboardPage() {
 
       {/* Performance Chart (CTL/ATL/TSB) */}
       <PerformanceChart />
+
+      {/* Monthly Mileage Comparison */}
+      <MonthlyMileageChart workouts={workouts} />
 
       {/* Charts row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
