@@ -9,6 +9,9 @@ import WeeklyNPChart from '../components/WeeklyNPChart';
 import WeeklyNPvsHRChart from '../components/WeeklyNPvsHRChart';
 import RecentDecouplingChart from '../components/RecentDecouplingChart';
 import WeeklyTSSChart from '../components/WeeklyTSSChart';
+import MonthlyCaloriesChart from '../components/MonthlyCaloriesChart';
+import MonthlyCadenceChart from '../components/MonthlyCadenceChart';
+import MonthlySpeedChart from '../components/MonthlySpeedChart';
 
 export default function DashboardPage() {
   const { workouts, isLoading, error, fetchWorkouts } = useWorkoutStore();
@@ -64,6 +67,13 @@ export default function DashboardPage() {
         <WeeklyNPvsHRChart workouts={workouts} />
         <RecentDecouplingChart workouts={workouts} />
         <WeeklyTSSChart workouts={workouts} />
+      </div>
+
+      {/* Charts row 3 - Monthly */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <MonthlyCaloriesChart workouts={workouts} />
+        <MonthlyCadenceChart workouts={workouts} />
+        <MonthlySpeedChart workouts={workouts} />
       </div>
     </div>
   );
