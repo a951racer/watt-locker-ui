@@ -35,7 +35,7 @@ export default function MonthlyCaloriesChart({ workouts }: MonthlyCaloriesChartP
       <h3 className="text-sm font-semibold text-softFog uppercase tracking-wide mb-3">
         Total Calories per Month (6 Months)
       </h3>
-      <ResponsiveContainer width="100%" height={180}>
+      <ResponsiveContainer width="100%" height={270}>
         <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#2E4767" />
           <XAxis dataKey="month" tick={{ fill: '#7E93AD', fontSize: 11 }} axisLine={{ stroke: '#2E4767' }} tickLine={false} />
