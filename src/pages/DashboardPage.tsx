@@ -12,6 +12,9 @@ import WeeklyTSSChart from '../components/WeeklyTSSChart';
 import MonthlyCaloriesChart from '../components/MonthlyCaloriesChart';
 import MonthlyCadenceChart from '../components/MonthlyCadenceChart';
 import MonthlySpeedChart from '../components/MonthlySpeedChart';
+import MonthlyTimeChart from '../components/MonthlyTimeChart';
+import MonthlyDistanceChart from '../components/MonthlyDistanceChart';
+import MonthlyAscentChart from '../components/MonthlyAscentChart';
 
 export default function DashboardPage() {
   const { workouts, isLoading, error, fetchWorkouts } = useWorkoutStore();
@@ -74,6 +77,13 @@ export default function DashboardPage() {
         <MonthlyCaloriesChart workouts={workouts} />
         <MonthlyCadenceChart workouts={workouts} />
         <MonthlySpeedChart workouts={workouts} />
+      </div>
+
+      {/* Charts row 4 - Monthly totals */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <MonthlyTimeChart workouts={workouts} />
+        <MonthlyDistanceChart workouts={workouts} />
+        <MonthlyAscentChart workouts={workouts} />
       </div>
     </div>
   );
