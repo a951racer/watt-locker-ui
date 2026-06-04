@@ -109,3 +109,20 @@ export async function recalculateWorkouts(): Promise<{ total: number; updated: n
 export async function deleteWorkout(id: string, removeFromDrive: boolean = false): Promise<void> {
   await apiClient.delete(`/workouts/${id}`, { params: removeFromDrive ? { removeFromDrive: 'true' } : {} });
 }
+
+export interface PowerCurveEntry {
+  workoutId: string;
+  date: string;
+  title?: string;
+  maxPowers: Record<string, number>;
+}
+
+export async function getPowerCurve(months: number = 6): Promise<PowerCurveEntry[]> {
+  const { data } = await apiClient.get<ApiEnvelope<PowerCurveEntry[]>>('/workouts/power-curve', { params: { months } });
+  return data.data;
+}
+
+export async function computePowerCurves(): Promise<{ total: number; computed: number; skipped: number; failed: number }> {
+  const { data } = await apiClient.post<ApiEnvelope<{ total: number; computed: number; skipped: number; failed: number }>>('/workouts/compute-power-curves');
+  return data.data;
+}
