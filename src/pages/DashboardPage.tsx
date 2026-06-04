@@ -15,6 +15,7 @@ import MonthlySpeedChart from '../components/MonthlySpeedChart';
 import MonthlyTimeChart from '../components/MonthlyTimeChart';
 import MonthlyDistanceChart from '../components/MonthlyDistanceChart';
 import MonthlyAscentChart from '../components/MonthlyAscentChart';
+import MonthlyTSSIFChart from '../components/MonthlyTSSIFChart';
 
 export default function DashboardPage() {
   const { workouts, isLoading, error, fetchWorkouts } = useWorkoutStore();
@@ -69,14 +70,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <WeeklyNPvsHRChart workouts={workouts} />
         <RecentDecouplingChart workouts={workouts} />
-        <WeeklyTSSChart workouts={workouts} />
+        <MonthlySpeedChart workouts={workouts} />
       </div>
 
       {/* Charts row 3 - Monthly */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <MonthlyCaloriesChart workouts={workouts} />
         <MonthlyCadenceChart workouts={workouts} />
-        <MonthlySpeedChart workouts={workouts} />
+        <MonthlyCaloriesChart workouts={workouts} />
+        <WeeklyTSSChart workouts={workouts} />
       </div>
 
       {/* Charts row 4 - Monthly totals */}
@@ -84,6 +85,11 @@ export default function DashboardPage() {
         <MonthlyTimeChart workouts={workouts} />
         <MonthlyDistanceChart workouts={workouts} />
         <MonthlyAscentChart workouts={workouts} />
+      </div>
+
+      {/* Charts row 5 - TSS/IF */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <MonthlyTSSIFChart workouts={workouts} />
       </div>
     </div>
   );

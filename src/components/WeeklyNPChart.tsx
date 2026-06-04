@@ -60,7 +60,7 @@ export default function WeeklyNPChart({ workouts }: WeeklyNPChartProps) {
       <h3 className="text-sm font-semibold text-softFog uppercase tracking-wide mb-3">
         Avg Normalized Power (Last 8 Weeks)
       </h3>
-      <ResponsiveContainer width="100%" height={180}>
+      <ResponsiveContainer width="100%" height={270}>
         <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#2E4767" />
           <XAxis
