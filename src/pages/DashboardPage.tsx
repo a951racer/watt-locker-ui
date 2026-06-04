@@ -3,19 +3,6 @@ import { useWorkoutStore } from '../store/workoutStore';
 import PerformanceChart from '../components/PerformanceChart';
 import SummaryStats from '../components/SummaryStats';
 import MonthlyMileageChart from '../components/MonthlyMileageChart';
-import WeeklyMilesChart from '../components/WeeklyMilesChart';
-import WeeklyDurationChart from '../components/WeeklyDurationChart';
-import WeeklyNPChart from '../components/WeeklyNPChart';
-import WeeklyNPvsHRChart from '../components/WeeklyNPvsHRChart';
-import RecentDecouplingChart from '../components/RecentDecouplingChart';
-import WeeklyTSSChart from '../components/WeeklyTSSChart';
-import MonthlyCaloriesChart from '../components/MonthlyCaloriesChart';
-import MonthlyCadenceChart from '../components/MonthlyCadenceChart';
-import MonthlySpeedChart from '../components/MonthlySpeedChart';
-import MonthlyTimeChart from '../components/MonthlyTimeChart';
-import MonthlyDistanceChart from '../components/MonthlyDistanceChart';
-import MonthlyAscentChart from '../components/MonthlyAscentChart';
-import MonthlyTSSIFChart from '../components/MonthlyTSSIFChart';
 
 export default function DashboardPage() {
   const { workouts, isLoading, error, fetchWorkouts } = useWorkoutStore();
@@ -58,39 +45,6 @@ export default function DashboardPage() {
 
       {/* Monthly Mileage Comparison */}
       <MonthlyMileageChart workouts={workouts} />
-
-      {/* Charts row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <WeeklyMilesChart workouts={workouts} />
-        <WeeklyDurationChart workouts={workouts} />
-        <WeeklyNPChart workouts={workouts} />
-      </div>
-
-      {/* Charts row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <WeeklyNPvsHRChart workouts={workouts} />
-        <RecentDecouplingChart workouts={workouts} />
-        <MonthlySpeedChart workouts={workouts} />
-      </div>
-
-      {/* Charts row 3 - Monthly */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <MonthlyCadenceChart workouts={workouts} />
-        <MonthlyCaloriesChart workouts={workouts} />
-        <WeeklyTSSChart workouts={workouts} />
-      </div>
-
-      {/* Charts row 4 - Monthly totals */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <MonthlyTimeChart workouts={workouts} />
-        <MonthlyDistanceChart workouts={workouts} />
-        <MonthlyAscentChart workouts={workouts} />
-      </div>
-
-      {/* Charts row 5 - TSS/IF */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <MonthlyTSSIFChart workouts={workouts} />
-      </div>
     </div>
   );
 }

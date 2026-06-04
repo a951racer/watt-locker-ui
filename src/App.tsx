@@ -10,6 +10,7 @@ import AdminPage from './pages/AdminPage';
 import WorkoutDetailPage from './pages/WorkoutDetailPage';
 import WorkoutsPage from './pages/WorkoutsPage';
 import PowerPage from './pages/PowerPage';
+import TrendsPage from './pages/TrendsPage';
 
 function RootRedirect() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -78,6 +79,16 @@ function App() {
           <ProtectedRoute>
             <AuthenticatedLayout>
               <PowerPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/trends"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <TrendsPage />
             </AuthenticatedLayout>
           </ProtectedRoute>
         }
