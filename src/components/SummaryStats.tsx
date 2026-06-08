@@ -79,6 +79,7 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
       },
       currentYear,
       lastYearNum: lastYear,
+      currentMonth: now.toLocaleString('default', { month: 'long' }),
     };
   }, [workouts]);
 
@@ -87,7 +88,7 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
       {/* MTD */}
       <div className="bg-midnightBlue/80 rounded-xl p-4 border border-steelBlue/50">
         <h3 className="text-sm font-bold text-lightSilver uppercase tracking-wide mb-3">
-          Month to Date
+          {stats.currentMonth}
         </h3>
         <div className="space-y-2">
           <StatRow label="Workouts" value={stats.mtd.count.toLocaleString()} />
