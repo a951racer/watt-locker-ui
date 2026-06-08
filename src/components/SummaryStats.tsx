@@ -23,6 +23,12 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
     console.log('[SummaryStats] Sample startTime:', workouts[0]?.startTime);
     console.log('[SummaryStats] Current year:', currentYear, 'Last year:', lastYear);
 
+    const monthStart = new Date(currentYear, now.getMonth(), 1);
+
+    const mtdWorkouts = workouts.filter((w) => {
+      const d = new Date(w.startTime);
+      return d >= monthStart && d <= now;
+    });
     const ytdWorkouts = workouts.filter((w) => {
       const d = new Date(w.startTime);
       return d.getFullYear() === currentYear;
@@ -32,8 +38,7 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
       return d.getFullYear() === lastYear;
     });
 
-    console.log('[SummaryStats] YTD count:', ytdWorkouts.length, 'Last year count:', lastYearWorkouts.length);
-    console.log('[SummaryStats] Last year sample:', lastYearWorkouts[0]?.distanceMeters, lastYearWorkouts[0]?.movingTimeSeconds, lastYearWorkouts[0]?.elevationGainMeters);
+    console.log('[SummaryStats] MTD count:', mtdWorkouts.length, 'YTD count:', ytdWorkouts.length, 'Last year count:', lastYearWorkouts.length);
 
     const sum = (arr: WorkoutRecord[], field: 'distanceMeters' | 'elevationGainMeters') =>
       arr.reduce((total, w) => {
@@ -48,6 +53,12 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
       }, 0);
 
     return {
+      mtd: {
+        miles: formatMiles(sum(mtdWorkouts, 'distanceMeters')),
+        ascent: formatFeet(sum(mtdWorkouts, 'elevationGainMeters')),
+        durationSeconds: sumDurationRaw(mtdWorkouts),
+        count: mtdWorkouts.length,
+      },
       ytd: {
         miles: formatMiles(sum(ytdWorkouts, 'distanceMeters')),
         ascent: formatFeet(sum(ytdWorkouts, 'elevationGainMeters')),
@@ -72,7 +83,20 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
   }, [workouts]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* MTD */}
+      <div className="bg-midnightBlue/80 rounded-xl p-4 border border-steelBlue/50">
+        <h3 className="text-sm font-bold text-lightSilver uppercase tracking-wide mb-3">
+          Month to Date
+        </h3>
+        <div className="space-y-2">
+          <StatRow label="Workouts" value={stats.mtd.count.toLocaleString()} />
+          <StatRow label="Miles" value={stats.mtd.miles} unit="mi" />
+          <DurationRow label="Duration" seconds={stats.mtd.durationSeconds} />
+          <StatRow label="Ascent" value={stats.mtd.ascent} unit="ft" />
+        </div>
+      </div>
+
       {/* YTD */}
       <div className="bg-midnightBlue/80 rounded-xl p-4 border border-steelBlue/50">
         <h3 className="text-sm font-bold text-lightSilver uppercase tracking-wide mb-3">
