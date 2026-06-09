@@ -11,6 +11,7 @@ import WorkoutDetailPage from './pages/WorkoutDetailPage';
 import WorkoutsPage from './pages/WorkoutsPage';
 import PowerPage from './pages/PowerPage';
 import TrendsPage from './pages/TrendsPage';
+import TrainingLogPage from './pages/TrainingLogPage';
 
 function RootRedirect() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -89,6 +90,16 @@ function App() {
           <ProtectedRoute>
             <AuthenticatedLayout>
               <TrendsPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/training-log"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <TrainingLogPage />
             </AuthenticatedLayout>
           </ProtectedRoute>
         }

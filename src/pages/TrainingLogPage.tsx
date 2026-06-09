@@ -1,0 +1,222 @@
+import { useEffect, useMemo } from 'react';
+import { useWorkoutStore } from '../store/workoutStore';
+import type { WorkoutRecord } from '../types/workout';
+
+interface DayData {
+  date: Date;
+  totalTss: number;
+  title: string;
+  count: number;
+}
+
+interface WeekRow {
+  weekStart: Date;
+  weekEnd: Date;
+  days: (DayData | null)[]; // Mon–Sun (7 slots)
+  totalTss: number;
+}
+
+function getMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function formatDateRange(start: Date, end: Date): string {
+  const sameMonth = start.getMonth() === end.getMonth();
+  const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const endStr = sameMonth
+    ? end.getDate().toString()
+    : end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${startStr} – ${endStr}`;
+}
+
+function buildWeeks(workouts: WorkoutRecord[]): WeekRow[] {
+  // Group workouts by date string (YYYY-MM-DD)
+  const dayMap = new Map<string, { totalTss: number; titles: string[]; count: number; date: Date }>();
+
+  for (const w of workouts) {
+    const d = new Date(w.startTime);
+    const key = d.toISOString().slice(0, 10);
+    const existing = dayMap.get(key);
+    const tss = w.tss ?? 0;
+    if (existing) {
+      existing.totalTss += tss;
+      existing.count += 1;
+      if (w.title) existing.titles.push(w.title);
+    } else {
+      dayMap.set(key, {
+        totalTss: tss,
+        titles: w.title ? [w.title] : [],
+        count: 1,
+        date: new Date(d.getFullYear(), d.getMonth(), d.getDate()),
+      });
+    }
+  }
+
+  if (dayMap.size === 0) return [];
+
+  // Find date range
+  const allDates = Array.from(dayMap.values()).map((v) => v.date.getTime());
+  const minDate = new Date(Math.min(...allDates));
+  const maxDate = new Date(Math.max(...allDates));
+
+  // Build week rows from the most recent Monday through the oldest Monday
+  const firstMonday = getMonday(minDate);
+  const lastMonday = getMonday(maxDate);
+
+  const weeks: WeekRow[] = [];
+  let currentMonday = new Date(lastMonday);
+
+  while (currentMonday >= firstMonday) {
+    const days: (DayData | null)[] = [];
+    let weekTss = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const dayDate = new Date(currentMonday);
+      dayDate.setDate(dayDate.getDate() + i);
+      const key = dayDate.toISOString().slice(0, 10);
+      const data = dayMap.get(key);
+
+      if (data && data.totalTss > 0) {
+        const title =
+          data.count > 1
+            ? `${data.count} workouts`
+            : data.titles[0] || 'Workout';
+        days.push({ date: dayDate, totalTss: data.totalTss, title, count: data.count });
+        weekTss += data.totalTss;
+      } else {
+        days.push(null);
+      }
+    }
+
+    const weekEnd = new Date(currentMonday);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    weeks.push({
+      weekStart: new Date(currentMonday),
+      weekEnd,
+      days,
+      totalTss: weekTss,
+    });
+
+    currentMonday.setDate(currentMonday.getDate() - 7);
+  }
+
+  return weeks;
+}
+
+function BubbleCell({ day, maxTss }: { day: DayData | null; maxTss: number }) {
+  if (!day) {
+    return <div className="flex-1 flex flex-col items-center justify-center min-h-[100px]" />;
+  }
+
+  // Scale bubble size: min 28px, max 80px
+  const minSize = 28;
+  const maxSize = 80;
+  const ratio = maxTss > 0 ? day.totalTss / maxTss : 0;
+  const size = Math.round(minSize + ratio * (maxSize - minSize));
+  const fontSize = size < 36 ? '0.6rem' : size < 50 ? '0.7rem' : '0.8rem';
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center min-h-[100px] gap-1">
+      <div
+        className="rounded-full bg-electricBlue flex items-center justify-center text-pureWhite font-bold"
+        style={{ width: `${size}px`, height: `${size}px`, fontSize }}
+      >
+        {Math.round(day.totalTss)}
+      </div>
+      <span className="text-xs text-softFog text-center max-w-[90px] truncate">
+        {day.title}
+      </span>
+    </div>
+  );
+}
+
+export default function TrainingLogPage() {
+  const { workouts, isLoading, error, fetchWorkouts } = useWorkoutStore();
+
+  useEffect(() => {
+    fetchWorkouts();
+  }, [fetchWorkouts]);
+
+  const weeks = useMemo(() => buildWeeks(workouts), [workouts]);
+
+  const maxDailyTss = useMemo(() => {
+    let max = 0;
+    for (const week of weeks) {
+      for (const day of week.days) {
+        if (day && day.totalTss > max) max = day.totalTss;
+      }
+    }
+    return max;
+  }, [weeks]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-lightSilver text-lg">Loading training log...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <p className="text-red-400 text-lg">{error}</p>
+        <button
+          className="px-4 py-2 rounded bg-electricBlue text-pureWhite hover:bg-brightCyan transition-colors"
+          onClick={() => fetchWorkouts()}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  return (
+    <div className="p-6 space-y-4">
+      <h1 className="text-2xl font-bold text-pureWhite">Training Log</h1>
+
+      <div className="overflow-y-auto">
+        {/* Day-of-week header */}
+        <div className="flex items-center sticky top-0 bg-charcoalGray z-10 pb-2">
+          <div className="w-[140px] shrink-0" />
+          {dayHeaders.map((d) => (
+            <div key={d} className="flex-1 text-center text-xs font-semibold text-lightSilver uppercase tracking-wide">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Week rows */}
+        {weeks.map((week, idx) => (
+          <div key={idx} className="flex items-center border-b border-steelBlue/30 py-2">
+            {/* Left sidebar */}
+            <div className="w-[140px] shrink-0 pr-4">
+              <div className="text-sm font-semibold text-pureWhite">
+                {formatDateRange(week.weekStart, week.weekEnd)}
+              </div>
+              <div className="text-xs text-softFog">Total TSS</div>
+              <div className="text-lg font-bold text-pureWhite">{Math.round(week.totalTss)}</div>
+            </div>
+
+            {/* Day bubbles */}
+            {week.days.map((day, dayIdx) => (
+              <BubbleCell key={dayIdx} day={day} maxTss={maxDailyTss} />
+            ))}
+          </div>
+        ))}
+
+        {weeks.length === 0 && (
+          <p className="text-softFog text-center py-8">No workouts found.</p>
+        )}
+      </div>
+    </div>
+  );
+}
