@@ -6,6 +6,7 @@ const navLinks = [
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard' },
   { key: 'power', label: 'Power', path: '/power' },
   { key: 'trends', label: 'Trends', path: '/trends' },
+  { key: 'training-log', label: 'Training Log', path: '/training-log' },
   { key: 'workouts', label: 'Workouts', path: '/workouts' },
   { key: 'locker', label: 'Locker', path: '/locker' },
   { key: 'admin', label: 'Admin', path: '/admin' },
