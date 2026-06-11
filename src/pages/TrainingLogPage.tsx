@@ -111,18 +111,18 @@ function buildWeeks(workouts: WorkoutRecord[]): WeekRow[] {
 
 function BubbleCell({ day, maxTss }: { day: DayData | null; maxTss: number }) {
   if (!day) {
-    return <div className="flex-1 flex flex-col items-center justify-center min-h-[100px]" />;
+    return <div className="flex-1 flex flex-col items-center justify-center min-h-[140px]" />;
   }
 
-  // Scale bubble size: min 28px, max 80px
-  const minSize = 28;
-  const maxSize = 80;
-  const ratio = maxTss > 0 ? day.totalTss / maxTss : 0;
+  // Scale bubble size: min 18px, max 120px, sqrt scale for more dramatic variation
+  const minSize = 18;
+  const maxSize = 120;
+  const ratio = maxTss > 0 ? Math.sqrt(day.totalTss / maxTss) : 0;
   const size = Math.round(minSize + ratio * (maxSize - minSize));
-  const fontSize = size < 36 ? '0.6rem' : size < 50 ? '0.7rem' : '0.8rem';
+  const fontSize = size < 30 ? '0.55rem' : size < 45 ? '0.65rem' : size < 70 ? '0.75rem' : '0.85rem';
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center min-h-[100px] gap-1">
+    <div className="flex-1 flex flex-col items-center justify-center min-h-[140px] gap-1">
       <div
         className="rounded-full bg-electricBlue flex items-center justify-center text-pureWhite font-bold"
         style={{ width: `${size}px`, height: `${size}px`, fontSize }}
@@ -196,7 +196,7 @@ export default function TrainingLogPage() {
 
         {/* Week rows */}
         {weeks.map((week, idx) => (
-          <div key={idx} className="flex items-center border-b border-steelBlue/30 py-2">
+          <div key={idx} className="flex items-center border-b border-steelBlue py-3">
             {/* Left sidebar */}
             <div className="w-[140px] shrink-0 pr-4">
               <div className="text-sm font-semibold text-pureWhite">
