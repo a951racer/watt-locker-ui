@@ -25,6 +25,16 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
 
     const monthStart = new Date(currentYear, now.getMonth(), 1);
 
+    // Week starts on Monday
+    const dayOfWeek = now.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const weekStart = new Date(currentYear, now.getMonth(), now.getDate() + mondayOffset);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const wtdWorkouts = workouts.filter((w) => {
+      const d = new Date(w.startTime);
+      return d >= weekStart && d <= now;
+    });
     const mtdWorkouts = workouts.filter((w) => {
       const d = new Date(w.startTime);
       return d >= monthStart && d <= now;
@@ -53,6 +63,12 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
       }, 0);
 
     return {
+      wtd: {
+        miles: formatMiles(sum(wtdWorkouts, 'distanceMeters')),
+        ascent: formatFeet(sum(wtdWorkouts, 'elevationGainMeters')),
+        durationSeconds: sumDurationRaw(wtdWorkouts),
+        count: wtdWorkouts.length,
+      },
       mtd: {
         miles: formatMiles(sum(mtdWorkouts, 'distanceMeters')),
         ascent: formatFeet(sum(mtdWorkouts, 'elevationGainMeters')),
@@ -84,7 +100,20 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
   }, [workouts]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {/* WTD */}
+      <div className="bg-midnightBlue/80 rounded-xl p-4 border border-steelBlue/50">
+        <h3 className="text-sm font-bold text-lightSilver uppercase tracking-wide mb-3">
+          This Week
+        </h3>
+        <div className="space-y-2">
+          <StatRow label="Workouts" value={stats.wtd.count.toLocaleString()} />
+          <StatRow label="Miles" value={stats.wtd.miles} unit="mi" />
+          <DurationRow label="Duration" seconds={stats.wtd.durationSeconds} />
+          <StatRow label="Ascent" value={stats.wtd.ascent} unit="ft" />
+        </div>
+      </div>
+
       {/* MTD */}
       <div className="bg-midnightBlue/80 rounded-xl p-4 border border-steelBlue/50">
         <h3 className="text-sm font-bold text-lightSilver uppercase tracking-wide mb-3">
