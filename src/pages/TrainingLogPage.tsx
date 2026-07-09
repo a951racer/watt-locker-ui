@@ -25,22 +25,45 @@ function getMonday(date: Date): Date {
   return d;
 }
 
+// Convert a UTC date to Central US date string (YYYY-MM-DD)
+function toCentralDateKey(date: Date): string {
+  return date.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }); // en-CA gives YYYY-MM-DD
+}
+
+// Get the local date parts in Central timezone
+function getCentralDate(date: Date): { year: number; month: number; day: number; dayOfWeek: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  }).formatToParts(date);
+  const year = parseInt(parts.find((p) => p.type === 'year')!.value);
+  const month = parseInt(parts.find((p) => p.type === 'month')!.value) - 1;
+  const day = parseInt(parts.find((p) => p.type === 'day')!.value);
+  const weekdayStr = parts.find((p) => p.type === 'weekday')!.value;
+  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { year, month, day, dayOfWeek: weekdayMap[weekdayStr] ?? 0 };
+}
+
 function formatDateRange(start: Date, end: Date): string {
   const sameMonth = start.getMonth() === end.getMonth();
   const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const endStr = sameMonth
     ? end.getDate().toString()
     : end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return `${startStr} – ${endStr}`;
+  return `${startStr} \u2013 ${endStr}`;
 }
 
 function buildWeeks(workouts: WorkoutRecord[]): WeekRow[] {
-  // Group workouts by date string (YYYY-MM-DD)
+  // Group workouts by date string in Central US timezone (YYYY-MM-DD)
   const dayMap = new Map<string, { totalTss: number; titles: string[]; count: number; date: Date }>();
 
   for (const w of workouts) {
     const d = new Date(w.startTime);
-    const key = d.toISOString().slice(0, 10);
+    const key = toCentralDateKey(d);
+    const central = getCentralDate(d);
     const existing = dayMap.get(key);
     const tss = w.tss ?? 0;
     if (existing) {
@@ -52,7 +75,7 @@ function buildWeeks(workouts: WorkoutRecord[]): WeekRow[] {
         totalTss: tss,
         titles: w.title ? [w.title] : [],
         count: 1,
-        date: new Date(d.getFullYear(), d.getMonth(), d.getDate()),
+        date: new Date(central.year, central.month, central.day),
       });
     }
   }
@@ -78,7 +101,8 @@ function buildWeeks(workouts: WorkoutRecord[]): WeekRow[] {
     for (let i = 0; i < 7; i++) {
       const dayDate = new Date(currentMonday);
       dayDate.setDate(dayDate.getDate() + i);
-      const key = dayDate.toISOString().slice(0, 10);
+      // Use local date format (YYYY-MM-DD) to match keys
+      const key = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, '0')}-${String(dayDate.getDate()).padStart(2, '0')}`;
       const data = dayMap.get(key);
 
       if (data && data.totalTss > 0) {
