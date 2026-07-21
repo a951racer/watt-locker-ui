@@ -127,11 +127,7 @@ export async function getPowerCurve(months: number = 6): Promise<PowerCurveEntry
   return data.data;
 }
 
-export async function computePowerCurves(force = false, skip = 0): Promise<{ total: number; remaining: number; computed: number; skipped: number; failed: number }> {
-  const params = new URLSearchParams();
-  if (force) params.set('force', 'true');
-  if (skip > 0) params.set('skip', String(skip));
-  const qs = params.toString();
-  const { data } = await apiClient.post<ApiEnvelope<{ total: number; remaining: number; computed: number; skipped: number; failed: number }>>(`/workouts/compute-power-curves${qs ? `?${qs}` : ''}`);
+export async function computePowerCurves(force = false): Promise<{ computed: number; skipped: number; failed: number }> {
+  const { data } = await apiClient.post<ApiEnvelope<{ computed: number; skipped: number; failed: number }>>(`/workouts/compute-power-curves${force ? '?force=true' : ''}`);
   return data.data;
 }
