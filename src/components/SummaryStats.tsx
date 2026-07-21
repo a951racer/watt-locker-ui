@@ -24,6 +24,8 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
     console.log('[SummaryStats] Current year:', currentYear, 'Last year:', lastYear);
 
     const monthStart = new Date(currentYear, now.getMonth(), 1);
+    const prevMonthStart = new Date(currentYear, now.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(currentYear, now.getMonth(), 0, 23, 59, 59, 999);
 
     // Week starts on Monday
     const dayOfWeek = now.getDay();
@@ -38,6 +40,10 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
     const mtdWorkouts = workouts.filter((w) => {
       const d = new Date(w.startTime);
       return d >= monthStart && d <= now;
+    });
+    const prevMonthWorkouts = workouts.filter((w) => {
+      const d = new Date(w.startTime);
+      return d >= prevMonthStart && d <= prevMonthEnd;
     });
     const ytdWorkouts = workouts.filter((w) => {
       const d = new Date(w.startTime);
@@ -75,6 +81,12 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
         durationSeconds: sumDurationRaw(mtdWorkouts),
         count: mtdWorkouts.length,
       },
+      prevMonth: {
+        miles: formatMiles(sum(prevMonthWorkouts, 'distanceMeters')),
+        ascent: formatFeet(sum(prevMonthWorkouts, 'elevationGainMeters')),
+        durationSeconds: sumDurationRaw(prevMonthWorkouts),
+        count: prevMonthWorkouts.length,
+      },
       ytd: {
         miles: formatMiles(sum(ytdWorkouts, 'distanceMeters')),
         ascent: formatFeet(sum(ytdWorkouts, 'elevationGainMeters')),
@@ -96,11 +108,12 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
       currentYear,
       lastYearNum: lastYear,
       currentMonth: now.toLocaleString('default', { month: 'long' }),
+      prevMonthName: prevMonthStart.toLocaleString('default', { month: 'long' }),
     };
   }, [workouts]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
       {/* WTD */}
       <div className="bg-midnightBlue/80 rounded-xl p-4 border border-steelBlue/50">
         <h3 className="text-sm font-bold text-lightSilver uppercase tracking-wide mb-3">
@@ -124,6 +137,19 @@ export default function SummaryStats({ workouts }: SummaryStatsProps) {
           <StatRow label="Miles" value={stats.mtd.miles} unit="mi" />
           <DurationRow label="Duration" seconds={stats.mtd.durationSeconds} />
           <StatRow label="Ascent" value={stats.mtd.ascent} unit="ft" />
+        </div>
+      </div>
+
+      {/* Previous Month */}
+      <div className="bg-midnightBlue/80 rounded-xl p-4 border border-steelBlue/50">
+        <h3 className="text-sm font-bold text-lightSilver uppercase tracking-wide mb-3">
+          Previous Month
+        </h3>
+        <div className="space-y-2">
+          <StatRow label="Workouts" value={stats.prevMonth.count.toLocaleString()} />
+          <StatRow label="Miles" value={stats.prevMonth.miles} unit="mi" />
+          <DurationRow label="Duration" seconds={stats.prevMonth.durationSeconds} />
+          <StatRow label="Ascent" value={stats.prevMonth.ascent} unit="ft" />
         </div>
       </div>
 
