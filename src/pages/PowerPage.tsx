@@ -48,25 +48,12 @@ export default function PowerPage() {
   const handleCompute = async () => {
     setIsComputing(true);
     setComputeResult(null);
-    let totalComputed = 0;
-    let totalSkipped = 0;
-    let totalFailed = 0;
     try {
-      let remaining = 1;
-      let skip = 0;
-      while (remaining > 0) {
-        const result = await computePowerCurves(false, skip);
-        totalComputed += result.computed;
-        totalSkipped += result.skipped;
-        totalFailed += result.failed;
-        remaining = result.remaining;
-        skip += result.computed + result.skipped + result.failed;
-        setComputeResult(`${totalComputed} computed, ${totalSkipped} skipped, ${totalFailed} failed${remaining > 0 ? ` (${remaining} remaining...)` : ''}`);
-        if (remaining > 0) await new Promise((r) => setTimeout(r, 1000));
-      }
-      if (totalComputed > 0) fetchData();
+      const result = await computePowerCurves();
+      setComputeResult(`${result.computed} computed, ${result.skipped} skipped, ${result.failed} failed`);
+      if (result.computed > 0) fetchData();
     } catch {
-      setComputeResult(`${totalComputed} computed, ${totalSkipped} skipped, ${totalFailed} failed (error, retry for more)`);
+      setComputeResult('Computation failed');
     } finally {
       setIsComputing(false);
     }
@@ -75,25 +62,12 @@ export default function PowerPage() {
   const handleRecompute = async () => {
     setIsRecomputing(true);
     setComputeResult(null);
-    let totalComputed = 0;
-    let totalSkipped = 0;
-    let totalFailed = 0;
     try {
-      let remaining = 1;
-      let skip = 0;
-      while (remaining > 0) {
-        const result = await computePowerCurves(true, skip);
-        totalComputed += result.computed;
-        totalSkipped += result.skipped;
-        totalFailed += result.failed;
-        remaining = result.remaining;
-        skip += result.computed + result.skipped + result.failed;
-        setComputeResult(`${totalComputed} recomputed, ${totalSkipped} skipped, ${totalFailed} failed${remaining > 0 ? ` (${remaining} remaining...)` : ''}`);
-        if (remaining > 0) await new Promise((r) => setTimeout(r, 1000));
-      }
-      if (totalComputed > 0) fetchData();
+      const result = await computePowerCurves(true);
+      setComputeResult(`${result.computed} recomputed, ${result.skipped} skipped, ${result.failed} failed`);
+      if (result.computed > 0) fetchData();
     } catch {
-      setComputeResult(`${totalComputed} recomputed, ${totalSkipped} skipped, ${totalFailed} failed (error, retry for more)`);
+      setComputeResult('Recomputation failed');
     } finally {
       setIsRecomputing(false);
     }
