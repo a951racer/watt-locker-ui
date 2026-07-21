@@ -60,6 +60,7 @@ export default function PowerPage() {
         totalFailed += result.failed;
         remaining = result.remaining;
         setComputeResult(`${totalComputed} computed, ${totalSkipped} skipped, ${totalFailed} failed${remaining > 0 ? ` (${remaining} remaining...)` : ''}`);
+        if (remaining > 0) await new Promise((r) => setTimeout(r, 1000));
       }
       if (totalComputed > 0) fetchData();
     } catch {
@@ -84,6 +85,7 @@ export default function PowerPage() {
         totalFailed += result.failed;
         remaining = result.remaining;
         setComputeResult(`${totalComputed} recomputed, ${totalSkipped} skipped, ${totalFailed} failed${remaining > 0 ? ` (${remaining} remaining...)` : ''}`);
+        if (remaining > 0) await new Promise((r) => setTimeout(r, 1000));
       }
       if (totalComputed > 0) fetchData();
     } catch {
