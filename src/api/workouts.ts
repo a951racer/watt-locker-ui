@@ -106,6 +106,11 @@ export async function recalculateWorkouts(): Promise<{ total: number; updated: n
   return data.data;
 }
 
+export async function recalculateSpeed(): Promise<{ total: number; updated: number; failed: number }> {
+  const { data } = await apiClient.post<ApiEnvelope<{ total: number; updated: number; failed: number }>>('/workouts/recalculate-speed');
+  return data.data;
+}
+
 export async function deleteWorkout(id: string, removeFromDrive: boolean = false): Promise<void> {
   await apiClient.delete(`/workouts/${id}`, { params: removeFromDrive ? { removeFromDrive: 'true' } : {} });
 }
