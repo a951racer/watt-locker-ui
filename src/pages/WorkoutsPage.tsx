@@ -19,7 +19,7 @@ export default function WorkoutsPage() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
-  const [filterTag, setFilterTag] = useState('');
+  const [filterTag, setFilterTag] = useState<string[]>([]);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -97,7 +97,10 @@ export default function WorkoutsPage() {
       const title = (w.title || w.activityType || '').toLowerCase();
       if (!title.includes(filterTitle.toLowerCase())) return false;
     }
-    if (filterTag && !(w.tags ?? []).includes(filterTag)) return false;
+    if (filterTag.length > 0) {
+      const workoutTags = w.tags ?? [];
+      if (!filterTag.every((ft) => workoutTags.includes(ft))) return false;
+    }
     return true;
   });
 
@@ -195,25 +198,55 @@ export default function WorkoutsPage() {
           />
         </div>
         <div>
-          <label className="block text-xs text-softFog mb-1">Tag</label>
-          <select
-            value={filterTag}
-            onChange={(e) => { setFilterTag(e.target.value); setCurrentPage(1); }}
-            className="px-3 py-1.5 rounded bg-steelBlue/50 border border-steelBlue text-pureWhite text-sm focus:outline-none focus:ring-1 focus:ring-electricBlue"
-          >
-            <option value="">All</option>
-            {allTags.map((tag) => (
-              <option key={tag} value={tag}>{tag}</option>
-            ))}
-          </select>
+          <label className="block text-xs text-softFog mb-1">Tags</label>
+          <div className="relative">
+            <div className="flex flex-wrap gap-1 px-3 py-1.5 rounded bg-steelBlue/50 border border-steelBlue min-h-[34px] items-center min-w-[180px]">
+              {filterTag.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-electricBlue/30 text-pureWhite text-xs"
+                >
+                  {tag}
+                  <button
+                    onClick={() => {
+                      setFilterTag(filterTag.filter((t) => t !== tag));
+                      setCurrentPage(1);
+                    }}
+                    className="text-softFog hover:text-red-400 transition"
+                    aria-label={`Remove tag filter ${tag}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <select
+                value=""
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val && !filterTag.includes(val)) {
+                    setFilterTag([...filterTag, val]);
+                    setCurrentPage(1);
+                  }
+                }}
+                className="bg-transparent border-none text-pureWhite text-sm focus:outline-none cursor-pointer flex-1 min-w-[60px]"
+              >
+                <option value="" className="bg-steelBlue">{filterTag.length === 0 ? 'All' : 'Add...'}</option>
+                {allTags
+                  .filter((tag) => !filterTag.includes(tag))
+                  .map((tag) => (
+                    <option key={tag} value={tag} className="bg-steelBlue">{tag}</option>
+                  ))}
+              </select>
+            </div>
+          </div>
         </div>
-        {(filterDateFrom || filterDateTo || filterTitle || filterTag) && (
+        {(filterDateFrom || filterDateTo || filterTitle || filterTag.length > 0) && (
           <button
             onClick={() => {
               setFilterDateFrom('');
               setFilterDateTo('');
               setFilterTitle('');
-              setFilterTag('');
+              setFilterTag([]);
               setCurrentPage(1);
             }}
             className="text-sm px-3 py-1.5 rounded bg-steelBlue text-lightSilver hover:bg-softFog transition"

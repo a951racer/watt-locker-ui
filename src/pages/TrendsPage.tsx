@@ -64,8 +64,8 @@ export default function TrendsPage() {
       {/* Row 3 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <MonthlyCadenceChart workouts={workouts} />
-        <MonthlyCaloriesChart workouts={workouts} />
         <WeeklyTSSChart workouts={workouts} />
+        <MonthlyCaloriesChart workouts={workouts} />
       </div>
 
       {/* Row 4 - Monthly totals */}
