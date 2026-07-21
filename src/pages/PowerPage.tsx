@@ -26,6 +26,7 @@ export default function PowerPage() {
   const [data, setData] = useState<PowerCurveEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isComputing, setIsComputing] = useState(false);
+  const [isRecomputing, setIsRecomputing] = useState(false);
   const [computeResult, setComputeResult] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -55,6 +56,20 @@ export default function PowerPage() {
       setComputeResult('Computation failed');
     } finally {
       setIsComputing(false);
+    }
+  };
+
+  const handleRecompute = async () => {
+    setIsRecomputing(true);
+    setComputeResult(null);
+    try {
+      const result = await computePowerCurves(true);
+      setComputeResult(`${result.computed} recomputed, ${result.skipped} skipped, ${result.failed} failed`);
+      if (result.computed > 0) fetchData();
+    } catch {
+      setComputeResult('Recomputation failed');
+    } finally {
+      setIsRecomputing(false);
     }
   };
 
@@ -88,10 +103,17 @@ export default function PowerPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleCompute}
-            disabled={isComputing}
+            disabled={isComputing || isRecomputing}
             className="text-sm px-4 py-2 rounded bg-steelBlue text-lightSilver hover:bg-softFog disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             {isComputing ? 'Computing...' : 'Compute Missing'}
+          </button>
+          <button
+            onClick={handleRecompute}
+            disabled={isComputing || isRecomputing}
+            className="text-sm px-4 py-2 rounded bg-steelBlue text-lightSilver hover:bg-softFog disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {isRecomputing ? 'Recomputing...' : 'Recompute All'}
           </button>
           {computeResult && <span className="text-sm text-lightSilver">{computeResult}</span>}
         </div>
