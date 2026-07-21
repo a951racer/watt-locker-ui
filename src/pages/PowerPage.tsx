@@ -53,12 +53,14 @@ export default function PowerPage() {
     let totalFailed = 0;
     try {
       let remaining = 1;
+      let skip = 0;
       while (remaining > 0) {
-        const result = await computePowerCurves();
+        const result = await computePowerCurves(false, skip);
         totalComputed += result.computed;
         totalSkipped += result.skipped;
         totalFailed += result.failed;
         remaining = result.remaining;
+        skip += result.computed + result.skipped + result.failed;
         setComputeResult(`${totalComputed} computed, ${totalSkipped} skipped, ${totalFailed} failed${remaining > 0 ? ` (${remaining} remaining...)` : ''}`);
         if (remaining > 0) await new Promise((r) => setTimeout(r, 1000));
       }
@@ -78,12 +80,14 @@ export default function PowerPage() {
     let totalFailed = 0;
     try {
       let remaining = 1;
+      let skip = 0;
       while (remaining > 0) {
-        const result = await computePowerCurves(true);
+        const result = await computePowerCurves(true, skip);
         totalComputed += result.computed;
         totalSkipped += result.skipped;
         totalFailed += result.failed;
         remaining = result.remaining;
+        skip += result.computed + result.skipped + result.failed;
         setComputeResult(`${totalComputed} recomputed, ${totalSkipped} skipped, ${totalFailed} failed${remaining > 0 ? ` (${remaining} remaining...)` : ''}`);
         if (remaining > 0) await new Promise((r) => setTimeout(r, 1000));
       }
