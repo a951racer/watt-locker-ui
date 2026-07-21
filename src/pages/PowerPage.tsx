@@ -17,6 +17,9 @@ const DURATIONS = [
   { key: '1800', label: 'Max 30 Minute Power', color: '#3B82F6' },
   { key: '3600', label: 'Max 60 Minute Power', color: '#8B5CF6' },
   { key: '7200', label: 'Max 2 Hour Power', color: '#A78BFA' },
+  { key: '10800', label: 'Max 3 Hour Power', color: '#7C3AED' },
+  { key: '14400', label: 'Max 4 Hour Power', color: '#6D28D9' },
+  { key: '18000', label: 'Max 5 Hour Power', color: '#5B21B6' },
 ];
 
 export default function PowerPage() {
@@ -56,13 +59,19 @@ export default function PowerPage() {
   };
 
   // Build power curve data (best at each duration)
-  const powerCurveData = DURATIONS.map(({ key, label }) => {
+  const powerCurveData = DURATIONS.map(({ key }) => {
     const values = data
       .filter((e) => e.maxPowers[key] != null)
       .map((e) => e.maxPowers[key]);
     const best = values.length > 0 ? Math.max(...values) : 0;
-    return { duration: label.replace('Max ', '').replace(' Power', ''), watts: best };
+    return { seconds: Number(key), watts: best };
   });
+
+  const formatDurationTick = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${seconds / 60}m`;
+    return `${seconds / 3600}h`;
+  };
 
   if (isLoading) {
     return (
@@ -93,13 +102,24 @@ export default function PowerPage() {
         <h3 className="text-sm font-semibold text-softFog uppercase tracking-wide mb-3">
           Power Curve (6-Month Best)
         </h3>
-        <ResponsiveContainer width="100%" height={440}>
+        <ResponsiveContainer width="100%" height={880}>
           <LineChart data={powerCurveData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#2E4767" />
-            <XAxis dataKey="duration" tick={{ fill: '#7E93AD', fontSize: 11 }} axisLine={{ stroke: '#2E4767' }} tickLine={false} />
+            <XAxis
+              dataKey="seconds"
+              type="number"
+              scale="log"
+              domain={[1, 18000]}
+              ticks={[1, 5, 10, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 10800, 14400, 18000]}
+              tickFormatter={formatDurationTick}
+              tick={{ fill: '#7E93AD', fontSize: 11 }}
+              axisLine={{ stroke: '#2E4767' }}
+              tickLine={false}
+            />
             <YAxis tick={{ fill: '#7E93AD', fontSize: 11 }} axisLine={{ stroke: '#2E4767' }} tickLine={false} width={50} unit=" W" />
             <Tooltip
               contentStyle={{ backgroundColor: '#0D2A4F', border: '1px solid #2E4767', borderRadius: '8px', color: '#D9E1EA' }}
+              labelFormatter={(seconds) => formatDurationTick(seconds as number)}
               formatter={(value) => [`${value} W`, 'Best']}
             />
             <Line type="monotone" dataKey="watts" stroke="#1E7EF2" strokeWidth={3} dot={{ fill: '#3FA9FF', r: 6 }} activeDot={{ r: 8 }} />
