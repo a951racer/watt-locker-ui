@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
-import { recalculateWorkouts } from '../api/workouts';
+import { recalculateWorkouts, recalculateSpeed } from '../api/workouts';
 
 export default function AdminPage() {
   const { settings, isLoading, error, fetchSettings, updateSettings } = useSettingsStore();
@@ -17,6 +17,8 @@ export default function AdminPage() {
   // Recalculate state
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [recalcResult, setRecalcResult] = useState<string | null>(null);
+  const [isRecalcSpeed, setIsRecalcSpeed] = useState(false);
+  const [recalcSpeedResult, setRecalcSpeedResult] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -83,6 +85,19 @@ export default function AdminPage() {
       setRecalcResult('Recalculation failed');
     } finally {
       setIsRecalculating(false);
+    }
+  };
+
+  const handleRecalculateSpeed = async () => {
+    setIsRecalcSpeed(true);
+    setRecalcSpeedResult(null);
+    try {
+      const result = await recalculateSpeed();
+      setRecalcSpeedResult(`${result.updated} workouts updated, ${result.failed} failed`);
+    } catch {
+      setRecalcSpeedResult('Recalculation failed');
+    } finally {
+      setIsRecalcSpeed(false);
     }
   };
 
@@ -232,7 +247,7 @@ export default function AdminPage() {
 
         {/* Recalculate */}
         <div className="mt-6 pt-4 border-t border-steelBlue/30">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <button
               onClick={handleRecalculate}
               disabled={isRecalculating}
@@ -246,6 +261,21 @@ export default function AdminPage() {
           </div>
           <p className="text-xs text-softFog mt-2">
             Recomputes TSS and Intensity Factor for all workouts using the current FTP history.
+          </p>
+          <div className="flex items-center gap-4 flex-wrap mt-4">
+            <button
+              onClick={handleRecalculateSpeed}
+              disabled={isRecalcSpeed}
+              className="px-4 py-2 rounded bg-steelBlue text-lightSilver text-sm font-medium hover:bg-softFog disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {isRecalcSpeed ? 'Recalculating...' : 'Recalculate Avg Speed'}
+            </button>
+            {recalcSpeedResult && (
+              <span className="text-sm text-lightSilver">{recalcSpeedResult}</span>
+            )}
+          </div>
+          <p className="text-xs text-softFog mt-2">
+            Recomputes average speed for all workouts using distance / moving time.
           </p>
         </div>
       </div>
