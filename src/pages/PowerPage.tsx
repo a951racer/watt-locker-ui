@@ -48,12 +48,22 @@ export default function PowerPage() {
   const handleCompute = async () => {
     setIsComputing(true);
     setComputeResult(null);
+    let totalComputed = 0;
+    let totalSkipped = 0;
+    let totalFailed = 0;
     try {
-      const result = await computePowerCurves();
-      setComputeResult(`${result.computed} computed, ${result.skipped} skipped, ${result.failed} failed`);
-      if (result.computed > 0) fetchData();
+      let remaining = 1;
+      while (remaining > 0) {
+        const result = await computePowerCurves();
+        totalComputed += result.computed;
+        totalSkipped += result.skipped;
+        totalFailed += result.failed;
+        remaining = result.remaining;
+        setComputeResult(`${totalComputed} computed, ${totalSkipped} skipped, ${totalFailed} failed${remaining > 0 ? ` (${remaining} remaining...)` : ''}`);
+      }
+      if (totalComputed > 0) fetchData();
     } catch {
-      setComputeResult('Computation failed');
+      setComputeResult(`${totalComputed} computed, ${totalSkipped} skipped, ${totalFailed} failed (error, retry for more)`);
     } finally {
       setIsComputing(false);
     }
@@ -62,12 +72,22 @@ export default function PowerPage() {
   const handleRecompute = async () => {
     setIsRecomputing(true);
     setComputeResult(null);
+    let totalComputed = 0;
+    let totalSkipped = 0;
+    let totalFailed = 0;
     try {
-      const result = await computePowerCurves(true);
-      setComputeResult(`${result.computed} recomputed, ${result.skipped} skipped, ${result.failed} failed`);
-      if (result.computed > 0) fetchData();
+      let remaining = 1;
+      while (remaining > 0) {
+        const result = await computePowerCurves(true);
+        totalComputed += result.computed;
+        totalSkipped += result.skipped;
+        totalFailed += result.failed;
+        remaining = result.remaining;
+        setComputeResult(`${totalComputed} recomputed, ${totalSkipped} skipped, ${totalFailed} failed${remaining > 0 ? ` (${remaining} remaining...)` : ''}`);
+      }
+      if (totalComputed > 0) fetchData();
     } catch {
-      setComputeResult('Recomputation failed');
+      setComputeResult(`${totalComputed} recomputed, ${totalSkipped} skipped, ${totalFailed} failed (error, retry for more)`);
     } finally {
       setIsRecomputing(false);
     }
