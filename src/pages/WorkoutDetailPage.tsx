@@ -261,6 +261,78 @@ export default function WorkoutDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Planned vs Actual Comparison — only shown when planned data exists */}
+        {(workout.plannedDurationSeconds != null || workout.plannedDistanceMeters != null || workout.targetSpeed != null || workout.plannedTss != null || workout.plannedIf != null) && (
+          <div className="col-span-full rounded-lg bg-midnightBlue border border-brightCyan/50 p-4 space-y-3" data-testid="planned-vs-actual">
+            <h2 className="text-sm font-semibold text-brightCyan uppercase tracking-wide">Planned vs Actual</h2>
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="text-softFog font-medium">Metric</div>
+              <div className="text-softFog font-medium">Planned</div>
+              <div className="text-softFog font-medium">Actual</div>
+
+              {(workout.plannedDurationSeconds != null || workout.durationSeconds != null) && (
+                <>
+                  <div className="text-lightSilver">Duration</div>
+                  <div className="text-pureWhite" data-testid="planned-duration">
+                    {workout.plannedDurationSeconds != null ? formatDuration(workout.plannedDurationSeconds) : '—'}
+                  </div>
+                  <div className="text-pureWhite" data-testid="actual-duration">
+                    {workout.durationSeconds != null ? formatDuration(workout.durationSeconds) : '—'}
+                  </div>
+                </>
+              )}
+
+              {(workout.plannedDistanceMeters != null || workout.distanceMeters != null) && (
+                <>
+                  <div className="text-lightSilver">Distance</div>
+                  <div className="text-pureWhite" data-testid="planned-distance">
+                    {workout.plannedDistanceMeters != null ? formatDistance(workout.plannedDistanceMeters) : '—'}
+                  </div>
+                  <div className="text-pureWhite" data-testid="actual-distance">
+                    {workout.distanceMeters != null ? formatDistance(workout.distanceMeters) : '—'}
+                  </div>
+                </>
+              )}
+
+              {(workout.targetSpeed != null || workout.avgSpeedMps != null) && (
+                <>
+                  <div className="text-lightSilver">Avg Speed</div>
+                  <div className="text-pureWhite" data-testid="planned-speed">
+                    {workout.targetSpeed != null ? `${workout.targetSpeed.toFixed(1)} mph` : '—'}
+                  </div>
+                  <div className="text-pureWhite" data-testid="actual-speed">
+                    {workout.avgSpeedMps != null ? formatSpeed(workout.avgSpeedMps) : '—'}
+                  </div>
+                </>
+              )}
+
+              {(workout.plannedTss != null || workout.tss != null) && (
+                <>
+                  <div className="text-lightSilver">TSS</div>
+                  <div className="text-pureWhite" data-testid="planned-tss">
+                    {workout.plannedTss != null ? String(workout.plannedTss) : '—'}
+                  </div>
+                  <div className="text-pureWhite" data-testid="actual-tss">
+                    {workout.tss != null ? String(workout.tss) : '—'}
+                  </div>
+                </>
+              )}
+
+              {(workout.plannedIf != null || workout.intensityFactor != null) && (
+                <>
+                  <div className="text-lightSilver">IF</div>
+                  <div className="text-pureWhite" data-testid="planned-if">
+                    {workout.plannedIf != null ? workout.plannedIf.toFixed(2) : '—'}
+                  </div>
+                  <div className="text-pureWhite" data-testid="actual-if">
+                    {workout.intensityFactor != null ? workout.intensityFactor.toFixed(2) : '—'}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         <DetailCard title="Activity">
           <DetailItem label="Type" value={workout.activityType} />
           {workout.subActivityType && <DetailItem label="Sub-Type" value={workout.subActivityType} />}

@@ -3,6 +3,8 @@ export interface WorkoutRecord {
   userId: string;
   activityType: string;
   subActivityType?: string;
+  status?: string;
+  date?: string;
   startTime: string;
   endTime: string;
   durationSeconds: number;
@@ -36,6 +38,12 @@ export interface WorkoutRecord {
   description?: string;
   comment?: string;
   tags?: string[];
+  // Planning fields
+  plannedDurationSeconds?: number;
+  plannedDistanceMeters?: number;
+  plannedTss?: number;
+  plannedIf?: number;
+  targetSpeed?: number;
   createdAt: string;
   updatedAt: string;
 }

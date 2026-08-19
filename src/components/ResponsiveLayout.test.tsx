@@ -26,7 +26,7 @@ const mockWorkouts: WorkoutTableRow[] = [
 
 describe('Responsive Layout - Requirement 11', () => {
   describe('11.1 - Desktop viewport (1024px+)', () => {
-    it('AuthenticatedLayout uses flex column with min-h-screen', () => {
+    it('AuthenticatedLayout uses flex column with h-screen', () => {
       const { container } = render(
         <MemoryRouter>
           <AuthenticatedLayout>
@@ -36,7 +36,7 @@ describe('Responsive Layout - Requirement 11', () => {
       );
 
       const layoutRoot = container.firstElementChild;
-      expect(layoutRoot).toHaveClass('flex', 'flex-col', 'min-h-screen');
+      expect(layoutRoot).toHaveClass('flex', 'flex-col', 'h-screen');
     });
 
     it('NavigationBar uses full width without fixed pixel widths', () => {

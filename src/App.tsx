@@ -12,6 +12,9 @@ import WorkoutsPage from './pages/WorkoutsPage';
 import PowerPage from './pages/PowerPage';
 import TrendsPage from './pages/TrendsPage';
 import TrainingLogPage from './pages/TrainingLogPage';
+import CalendarPage from './pages/CalendarPage';
+import PlanActivityPage from './pages/PlanActivityPage';
+import TemplateLibraryPage from './pages/TemplateLibraryPage';
 
 function RootRedirect() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -100,6 +103,66 @@ function App() {
           <ProtectedRoute>
             <AuthenticatedLayout>
               <TrainingLogPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/calendar"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <CalendarPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/activities/plan"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <PlanActivityPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/templates"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <TemplateLibraryPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/templates/new"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <PlanActivityPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/templates/:id/edit"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <PlanActivityPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/activities/:id/edit"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <PlanActivityPage />
             </AuthenticatedLayout>
           </ProtectedRoute>
         }

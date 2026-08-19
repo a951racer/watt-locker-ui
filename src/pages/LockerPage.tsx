@@ -24,8 +24,12 @@ export default function LockerPage() {
     setSingleLoading(true);
     setSingleStatus(null);
     try {
-      await uploadWorkout(file);
-      setSingleStatus({ type: 'success', message: `"${file.name}" uploaded successfully.` });
+      const result = await uploadWorkout(file);
+      if (result.duplicate) {
+        setSingleStatus({ type: 'success', message: `"${file.name}" has already been imported.` });
+      } else {
+        setSingleStatus({ type: 'success', message: `"${file.name}" uploaded successfully.` });
+      }
     } catch {
       setSingleStatus({ type: 'error', message: `Failed to upload "${file.name}".` });
     } finally {
