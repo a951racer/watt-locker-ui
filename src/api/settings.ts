@@ -16,3 +16,8 @@ export async function updateSettings(updates: Partial<UserSettings>): Promise<Us
   const { data } = await apiClient.put<ApiEnvelope<UserSettings>>('/settings', updates);
   return data.data;
 }
+
+export async function getGoogleAuthUrl(): Promise<string> {
+  const { data } = await apiClient.get<ApiEnvelope<{ authUrl: string }>>('/auth/google');
+  return data.data.authUrl;
+}

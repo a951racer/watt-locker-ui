@@ -1,12 +1,19 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSettingsStore } from '../store/settingsStore';
 import { recalculateWorkouts, recalculateSpeed } from '../api/workouts';
+import { getGoogleAuthUrl } from '../api/settings';
 
 export default function AdminPage() {
   const { settings, isLoading, error, fetchSettings, updateSettings } = useSettingsStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [driveStoragePath, setDriveStoragePath] = useState('');
   const [driveInboxPath, setDriveInboxPath] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Google Drive connection state
+  const [driveConnecting, setDriveConnecting] = useState(false);
+  const [driveAuthResult, setDriveAuthResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // FTP History state
   const [ftpHistory, setFtpHistory] = useState<Array<{ effectiveDate: string; ftpWatts: number }>>([]);
@@ -23,6 +30,39 @@ export default function AdminPage() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  // Handle OAuth callback redirect result
+  useEffect(() => {
+    const authResult = searchParams.get('driveAuth');
+    if (authResult === 'success') {
+      setDriveAuthResult({ type: 'success', message: 'Google Drive connected successfully.' });
+      searchParams.delete('driveAuth');
+      setSearchParams(searchParams, { replace: true });
+      fetchSettings(); // Refresh to show updated connection state
+    } else if (authResult === 'error') {
+      const reason = searchParams.get('reason') || 'Connection failed';
+      setDriveAuthResult({ type: 'error', message: reason });
+      searchParams.delete('driveAuth');
+      searchParams.delete('reason');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleConnectDrive = async () => {
+    setDriveConnecting(true);
+    setDriveAuthResult(null);
+    try {
+      const authUrl = await getGoogleAuthUrl();
+      window.location.href = authUrl;
+    } catch {
+      setDriveAuthResult({ type: 'error', message: 'Failed to initiate Google Drive connection.' });
+      setDriveConnecting(false);
+    }
+  };
+
+  const isDriveConnected = settings?.connectedSources?.some(
+    (s) => s.connected && s.provider === 'manual' && s.connectedAt
+  ) ?? false;
 
   useEffect(() => {
     if (settings) {
@@ -104,6 +144,58 @@ export default function AdminPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-pureWhite">Admin Settings</h1>
+
+      {/* Google Drive Connection */}
+      <div className="bg-midnightBlue/80 rounded-xl p-6 shadow-lg">
+        <h2 className="text-lg font-semibold text-lightSilver mb-4">
+          Google Drive
+        </h2>
+        <p className="text-softFog text-sm mb-4">
+          Source workout files are archived to your Google Drive for durable storage.
+        </p>
+
+        {driveAuthResult && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${driveAuthResult.type === 'success' ? 'bg-green-500/20 border border-green-500/50 text-green-300' : 'bg-red-500/20 border border-red-500/50 text-red-300'}`} role="alert">
+            {driveAuthResult.message}
+          </div>
+        )}
+
+        {isDriveConnected ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+              <span className="text-green-300 text-sm font-medium">Connected</span>
+            </div>
+            <p className="text-softFog text-sm">
+              Source files will be archived to: <span className="text-lightSilver">{settings?.driveStoragePath || 'WattLocker'}</span>
+            </p>
+            <button
+              onClick={handleConnectDrive}
+              disabled={driveConnecting}
+              className="px-4 py-2 rounded-lg bg-steelBlue text-lightSilver text-sm font-medium hover:bg-softFog disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {driveConnecting ? 'Reconnecting...' : 'Reconnect'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+              <span className="text-red-300 text-sm font-medium">Not connected</span>
+            </div>
+            <p className="text-softFog text-sm">
+              Connect Google Drive to enable source file archival.
+            </p>
+            <button
+              onClick={handleConnectDrive}
+              disabled={driveConnecting}
+              className="px-6 py-2.5 rounded-lg bg-electricBlue text-pureWhite font-semibold hover:bg-brightCyan disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {driveConnecting ? 'Connecting...' : 'Connect Google Drive'}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Google Drive Configuration */}
       <div className="bg-midnightBlue/80 rounded-xl p-6 shadow-lg">
