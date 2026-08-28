@@ -61,7 +61,9 @@ function buildWeeks(workouts: WorkoutRecord[]): WeekRow[] {
   const dayMap = new Map<string, { totalTss: number; titles: string[]; count: number; date: Date }>();
 
   for (const w of workouts) {
+    if (!w.startTime) continue; // Skip planned activities without a startTime
     const d = new Date(w.startTime);
+    if (isNaN(d.getTime())) continue; // Skip invalid dates
     const key = toCentralDateKey(d);
     const central = getCentralDate(d);
     const existing = dayMap.get(key);

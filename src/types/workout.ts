@@ -3,6 +3,8 @@ export interface WorkoutRecord {
   userId: string;
   activityType: string;
   subActivityType?: string;
+  status?: string;
+  date?: string;
   startTime: string;
   endTime: string;
   durationSeconds: number;
@@ -36,6 +38,12 @@ export interface WorkoutRecord {
   description?: string;
   comment?: string;
   tags?: string[];
+  // Planning fields
+  plannedDurationSeconds?: number;
+  plannedDistanceMeters?: number;
+  plannedTss?: number;
+  plannedIf?: number;
+  targetSpeed?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,4 +71,24 @@ export interface PaginationMeta {
   pageSize: number;
   totalItems: number;
   totalPages: number;
+}
+
+/** Source artifact summary returned by GET /api/workouts/:id/sources */
+export interface SourceArtifactSummary {
+  id: string;
+  userId: string;
+  source: string;
+  format: string;
+  originalFileName: string;
+  importedAt: string;
+  driveFileId: string;
+  driveWebViewLink?: string;
+  role: 'primary' | 'secondary';
+  materialized: boolean;
+  startTime?: string;
+  durationSeconds?: number;
+  activityType?: string;
+  activityId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

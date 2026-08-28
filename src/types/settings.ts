@@ -10,5 +10,6 @@ export interface UserSettings {
   driveInboxPath: string;
   connectedSources: ConnectedSource[];
   ftpHistory?: Array<{ effectiveDate: string; ftpWatts: number }>;
+  timezone: string;
   updatedAt: string;
 }

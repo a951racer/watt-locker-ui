@@ -9,6 +9,7 @@ export default function AdminPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [driveStoragePath, setDriveStoragePath] = useState('');
   const [driveInboxPath, setDriveInboxPath] = useState('');
+  const [timezone, setTimezone] = useState('America/Chicago');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Google Drive connection state
@@ -68,6 +69,7 @@ export default function AdminPage() {
     if (settings) {
       setDriveStoragePath(settings.driveStoragePath);
       setDriveInboxPath(settings.driveInboxPath);
+      setTimezone(settings.timezone ?? 'America/Chicago');
       setFtpHistory(settings.ftpHistory ?? []);
     }
   }, [settings]);
@@ -76,7 +78,7 @@ export default function AdminPage() {
     e.preventDefault();
     setSaveSuccess(false);
     try {
-      await updateSettings({ driveStoragePath, driveInboxPath });
+      await updateSettings({ driveStoragePath, driveInboxPath, timezone });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch {
@@ -244,6 +246,28 @@ export default function AdminPage() {
               disabled={isLoading}
               className="w-full px-4 py-2.5 rounded-lg bg-steelBlue/50 border border-steelBlue text-pureWhite placeholder-softFog focus:outline-none focus:ring-2 focus:ring-electricBlue focus:border-transparent transition disabled:opacity-50"
             />
+          </div>
+
+          <div>
+            <label htmlFor="timezone" className="block text-sm font-medium text-lightSilver mb-1">
+              Timezone
+            </label>
+            <input
+              id="timezone"
+              type="text"
+              list="timezone-options"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              placeholder="Search timezones..."
+              disabled={isLoading}
+              className="w-full px-4 py-2.5 rounded-lg bg-steelBlue/50 border border-steelBlue text-pureWhite placeholder-softFog focus:outline-none focus:ring-2 focus:ring-electricBlue focus:border-transparent transition disabled:opacity-50"
+            />
+            <datalist id="timezone-options">
+              {Intl.supportedValuesOf('timeZone').map((tz) => (
+                <option key={tz} value={tz} />
+              ))}
+            </datalist>
+            <p className="text-xs text-softFog mt-1">Start typing to search (e.g., &quot;Chicago&quot;, &quot;New_York&quot;, &quot;London&quot;)</p>
           </div>
 
           <button

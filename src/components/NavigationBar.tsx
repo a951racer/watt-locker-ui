@@ -1,14 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getActiveNavItem } from '../utils/navigation';
+import { getActivePrimaryNav } from '../utils/navigation';
 import { useAuthStore } from '../store/authStore';
 
 const navLinks = [
-  { key: 'dashboard', label: 'Dashboard', path: '/dashboard' },
-  { key: 'power', label: 'Power', path: '/power' },
-  { key: 'trends', label: 'Trends', path: '/trends' },
-  { key: 'training-log', label: 'Training Log', path: '/training-log' },
-  { key: 'workouts', label: 'Workouts', path: '/workouts' },
+  { key: 'calendar', label: 'Calendar', path: '/calendar' },
+  { key: 'analytics', label: 'Analytics', path: '/dashboard' },
   { key: 'locker', label: 'Locker', path: '/locker' },
+  { key: 'templates', label: 'Templates', path: '/templates' },
   { key: 'admin', label: 'Admin', path: '/admin' },
 ] as const;
 
@@ -16,7 +14,7 @@ export default function NavigationBar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const logout = useAuthStore((state) => state.logout);
-  const activeItem = getActiveNavItem(pathname);
+  const activeItem = getActivePrimaryNav(pathname);
 
   const handleLogout = () => {
     logout();
