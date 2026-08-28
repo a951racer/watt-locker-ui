@@ -360,7 +360,7 @@ describe('PlanActivityPage', () => {
 
   // --- Repeat Functionality ---
 
-  it('repeat expands segments into flat array', () => {
+  it('repeat groups segments into a block without duplicating them (PLAN-046)', () => {
     renderPlanPage();
     // Add 2 segments
     fireEvent.click(screen.getByTestId('add-segment-btn'));
@@ -374,15 +374,16 @@ describe('PlanActivityPage', () => {
     fireEvent.click(screen.getByTestId('segment-1'));
     fireEvent.change(screen.getByTestId('segment-1-type'), { target: { value: 'recovery' } });
 
-    // Set repeat: from 0 to 1, count 3
-    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '0' } });
-    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '1' } });
+    // Group steps 1..2 (1-based), count 3
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '1' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '2' } });
     fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '3' } });
     fireEvent.click(screen.getByTestId('repeat-btn'));
 
-    // Should now have 6 segments (2 * 3)
-    expect(screen.getByTestId('segment-5')).toBeInTheDocument();
-    expect(screen.queryByTestId('segment-6')).not.toBeInTheDocument();
+    // Segments are NOT duplicated — still only 2 cards in the flat array
+    expect(screen.getByTestId('segment-0')).toBeInTheDocument();
+    expect(screen.getByTestId('segment-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('segment-2')).not.toBeInTheDocument();
   });
 
   // --- TSS/IF Preview ---
@@ -1051,6 +1052,181 @@ describe('PlanActivityPage — TSS/IF Override Provenance', () => {
   });
 });
 
+describe('PLAN-045: Step Duration Editor', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCreateActivity.mockResolvedValue({
+      id: 'new-1', date: '2024-06-15', status: 'planned', activityType: 'ride',
+    });
+    mockGetSettings.mockResolvedValue({
+      userId: 'user-1', driveStoragePath: '/uploads', driveInboxPath: '/inbox',
+      connectedSources: [], ftpHistory: [{ effectiveDate: '2024-01-01', ftpWatts: 250 }],
+      timezone: 'America/Chicago', updatedAt: '2024-06-01T00:00:00Z',
+    });
+  });
+
+  function addExpandedStep() {
+    fireEvent.click(screen.getByTestId('add-segment-btn'));
+    fireEvent.click(screen.getByTestId('add-step-interval'));
+    fireEvent.click(screen.getByTestId('segment-0'));
+  }
+
+  // Test 1 — Enter a simple duration (H:MM:SS)
+  it('parses 0:10:00 to 600 seconds', async () => {
+    renderPlanPage();
+    addExpandedStep();
+    const input = screen.getByTestId('segment-0-duration');
+    fireEvent.change(input, { target: { value: '0:10:00' } });
+    fireEvent.blur(input);
+    fireEvent.change(screen.getByTestId('segment-0-power-min'), { target: { value: '80' } });
+    fireEvent.change(screen.getByTestId('segment-0-power-max'), { target: { value: '80' } });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => expect(mockCreateActivity).toHaveBeenCalled());
+    const payload = mockCreateActivity.mock.calls[0][0];
+    expect(payload.segments![0]).toEqual(expect.objectContaining({ durationSeconds: 600 }));
+  });
+
+  // Test 2 — Edit an existing duration
+  it('edits 10:00 → 7:30 = 450 seconds', async () => {
+    renderPlanPage();
+    addExpandedStep();
+    const input = screen.getByTestId('segment-0-duration');
+    fireEvent.change(input, { target: { value: '0:10:00' } });
+    fireEvent.blur(input);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '7:30' } });
+    fireEvent.blur(input);
+    fireEvent.change(screen.getByTestId('segment-0-power-min'), { target: { value: '80' } });
+    fireEvent.change(screen.getByTestId('segment-0-power-max'), { target: { value: '80' } });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => expect(mockCreateActivity).toHaveBeenCalled());
+    expect(mockCreateActivity.mock.calls[0][0].segments![0]).toEqual(
+      expect.objectContaining({ durationSeconds: 450 }),
+    );
+  });
+
+  // Test 3 — Long duration
+  it('parses 1:30:00 to 5400 seconds', async () => {
+    renderPlanPage();
+    addExpandedStep();
+    const input = screen.getByTestId('segment-0-duration');
+    fireEvent.change(input, { target: { value: '1:30:00' } });
+    fireEvent.blur(input);
+    fireEvent.change(screen.getByTestId('segment-0-power-min'), { target: { value: '80' } });
+    fireEvent.change(screen.getByTestId('segment-0-power-max'), { target: { value: '80' } });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => expect(mockCreateActivity).toHaveBeenCalled());
+    expect(mockCreateActivity.mock.calls[0][0].segments![0]).toEqual(
+      expect.objectContaining({ durationSeconds: 5400 }),
+    );
+  });
+
+  // Test 4 — Bare number interpreted as minutes (human-friendly)
+  it('parses bare "30" as 30 minutes = 1800 seconds', async () => {
+    renderPlanPage();
+    addExpandedStep();
+    const input = screen.getByTestId('segment-0-duration');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '30' } });
+    fireEvent.blur(input);
+    fireEvent.change(screen.getByTestId('segment-0-power-min'), { target: { value: '80' } });
+    fireEvent.change(screen.getByTestId('segment-0-power-max'), { target: { value: '80' } });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => expect(mockCreateActivity).toHaveBeenCalled());
+    expect(mockCreateActivity.mock.calls[0][0].segments![0]).toEqual(
+      expect.objectContaining({ durationSeconds: 1800 }),
+    );
+  });
+
+  // Test 5 — Value does NOT reformat mid-typing (no cursor-jump feedback loop)
+  it('does not reformat the input while focused/typing', () => {
+    renderPlanPage();
+    addExpandedStep();
+    const input = screen.getByTestId('segment-0-duration') as HTMLInputElement;
+    fireEvent.focus(input);
+    // Simulate selecting-all and typing a new partial value
+    fireEvent.change(input, { target: { value: '7' } });
+    // While focused, the displayed text must remain exactly what the user typed,
+    // NOT get reformatted to "0:07:00" (which would jump the cursor).
+    expect(input.value).toBe('7');
+    fireEvent.change(input, { target: { value: '7:3' } });
+    expect(input.value).toBe('7:3');
+    fireEvent.change(input, { target: { value: '7:30' } });
+    expect(input.value).toBe('7:30');
+  });
+
+  // Test 6 — Temporary empty/partial input allowed while editing
+  it('allows temporarily clearing the field while focused', () => {
+    renderPlanPage();
+    addExpandedStep();
+    const input = screen.getByTestId('segment-0-duration') as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '' } });
+    expect(input.value).toBe(''); // not forced back to a value while typing
+  });
+
+  // Test 6b — Empty input on blur reverts to last valid value
+  it('reverts to last valid value when blurred with empty input', () => {
+    renderPlanPage();
+    addExpandedStep();
+    const input = screen.getByTestId('segment-0-duration') as HTMLInputElement;
+    // Default new step is 300s = 0:05:00
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    expect(input.value).toBe('0:05:00');
+  });
+
+  // Test 7 — Invalid input reverts on blur, does not corrupt the step
+  it('reverts invalid input on blur', () => {
+    renderPlanPage();
+    addExpandedStep();
+    const input = screen.getByTestId('segment-0-duration') as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'abc' } });
+    fireEvent.blur(input);
+    expect(input.value).toBe('0:05:00'); // reverted to last valid
+  });
+
+  // Test — On blur, valid value is normalized to canonical H:MM:SS
+  it('normalizes to canonical H:MM:SS on blur', () => {
+    renderPlanPage();
+    addExpandedStep();
+    const input = screen.getByTestId('segment-0-duration') as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '7:30' } });
+    fireEvent.blur(input);
+    expect(input.value).toBe('0:07:30');
+  });
+});
+
+// Verify activity-level duration behavior remains intact (Test 9)
+describe('PLAN-045: Activity-level duration unchanged', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCreateActivity.mockResolvedValue({
+      id: 'new-1', date: '2024-06-15', status: 'planned', activityType: 'ride',
+    });
+    mockGetSettings.mockResolvedValue({
+      userId: 'user-1', driveStoragePath: '/uploads', driveInboxPath: '/inbox',
+      connectedSources: [], ftpHistory: [{ effectiveDate: '2024-01-01', ftpWatts: 250 }],
+      timezone: 'America/Chicago', updatedAt: '2024-06-01T00:00:00Z',
+    });
+  });
+
+  it('activity-level duration still converts 1:30:00 to 5400s', async () => {
+    renderPlanPage();
+    fireEvent.change(screen.getByTestId('activity-type-select'), { target: { value: 'ride' } });
+    fireEvent.change(screen.getByTestId('duration-input'), { target: { value: '1:30:00' } });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => {
+      expect(mockCreateActivity).toHaveBeenCalledWith(expect.objectContaining({
+        plannedDurationSeconds: 5400,
+      }));
+    });
+  });
+});
+
 
 describe('PlanActivityPage — Template Return Navigation (PLAN-035C)', () => {
   beforeEach(() => {
@@ -1246,5 +1422,432 @@ describe('PlanActivityPage — Save as Template (PLAN-036)', () => {
     // Still on Plan Activity page
     expect(screen.getByTestId('plan-activity-page')).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('PLAN-046: Repeat-step blocks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCreateActivity.mockResolvedValue({
+      id: 'new-1', date: '2024-06-15', status: 'planned', activityType: 'ride',
+    });
+    mockGetSettings.mockResolvedValue({
+      userId: 'user-1', driveStoragePath: '/uploads', driveInboxPath: '/inbox',
+      connectedSources: [], ftpHistory: [{ effectiveDate: '2024-01-01', ftpWatts: 250 }],
+      timezone: 'America/Chicago', updatedAt: '2024-06-01T00:00:00Z',
+    });
+  });
+
+  function renderPage(route = '/activities/plan?date=2024-06-15') {
+    return render(
+      <MemoryRouter initialEntries={[route]}>
+        <Routes>
+          <Route path="/activities/plan" element={<PlanActivityPage />} />
+          <Route path="/activities/:id/edit" element={<PlanActivityPage />} />
+          <Route path="/calendar" element={<div>Calendar</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  function addStep(type: string) {
+    fireEvent.click(screen.getByTestId('add-segment-btn'));
+    fireEvent.click(screen.getByTestId(`add-step-${type}`));
+  }
+
+  // 1 — Human 1-based numbering everywhere user-visible
+  it('repeat range selectors are 1-based (min=1, never 0)', () => {
+    renderPage();
+    addStep('interval');
+    addStep('recovery');
+
+    const startInput = screen.getByTestId('repeat-start-input') as HTMLInputElement;
+    const endInput = screen.getByTestId('repeat-end-input') as HTMLInputElement;
+    const countInput = screen.getByTestId('repeat-count-input') as HTMLInputElement;
+
+    expect(startInput.min).toBe('1');
+    expect(endInput.min).toBe('1');
+    expect(startInput.max).toBe('2'); // 2 segments
+    expect(endInput.max).toBe('2');
+    // count is 1-based minimum too
+    expect(countInput.min).toBe('1');
+  });
+
+  it('visible step numbers are 1-based (first step shows "1", never "0")', () => {
+    renderPage();
+    addStep('interval');
+    addStep('recovery');
+
+    // Collapsed cards show a 1-based number badge
+    expect(screen.getByTestId('segment-0-number')).toHaveTextContent('1');
+    expect(screen.getByTestId('segment-1-number')).toHaveTextContent('2');
+    // No visible "0." numbering
+    expect(screen.getByTestId('segment-0-number')).not.toHaveTextContent('0.');
+  });
+
+  // 2 — Create repeat block groups segments (state carries them ONCE with repeatId)
+  it('creating a repeat block groups segments once with repeat metadata (not duplicated)', async () => {
+    renderPage();
+    await waitFor(() => { expect(mockGetSettings).toHaveBeenCalled(); });
+    addStep('interval');
+    addStep('recovery');
+
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '1' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '4' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    // Only 2 flat cards remain (not 8)
+    expect(screen.getByTestId('segment-0')).toBeInTheDocument();
+    expect(screen.getByTestId('segment-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('segment-2')).not.toBeInTheDocument();
+
+    // Submit and inspect payload — segments carry repeatId/repeatCount, only 2 of them
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => { expect(mockCreateActivity).toHaveBeenCalled(); });
+    const payload = mockCreateActivity.mock.calls[0][0];
+    expect(payload.segments).toHaveLength(2);
+    expect(payload.segments![0]).toEqual(expect.objectContaining({ repeatCount: 4 }));
+    expect(payload.segments![1]).toEqual(expect.objectContaining({ repeatCount: 4 }));
+    const rid0 = (payload.segments![0] as any).repeatId;
+    const rid1 = (payload.segments![1] as any).repeatId;
+    expect(rid0).toBeTruthy();
+    expect(rid0).toBe(rid1);
+  });
+
+  // PLAN-046A: block children keep their true GLOBAL step number
+  // (flatIndex + 1), NOT a reset local index. This is what keeps the number
+  // shown on each card in lockstep with the repeat Start/End selectors.
+  it('block children use global step numbering (flatIndex + 1)', () => {
+    renderPage();
+    addStep('warmup');   // step 1 (flatIndex 0) — standalone
+    addStep('interval'); // step 2 (flatIndex 1) — block child
+    addStep('recovery'); // step 3 (flatIndex 2) — block child
+
+    // Group steps 2..3 (global numbers). Children live at flatIndex 1 and 2.
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '2' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    // Standalone step keeps global 1.
+    expect(screen.getByTestId('segment-0-number')).toHaveTextContent('1');
+    // Block children show global 2 and 3 (flatIndex + 1), NOT local 1 and 2.
+    expect(screen.getByTestId('segment-1-number')).toHaveTextContent('2');
+    expect(screen.getByTestId('segment-2-number')).toHaveTextContent('3');
+  });
+
+  // 3 — Changing repeat count 4→5 changes only count, not child card count
+  it('changing repeat count updates count without duplicating child cards', async () => {
+    renderPage();
+    await waitFor(() => { expect(mockGetSettings).toHaveBeenCalled(); });
+    addStep('interval');
+    addStep('recovery');
+
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '1' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '4' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    // Find the block count input (testid is repeat-block-count-{repeatId})
+    const countInput = screen.getByTestId(/^repeat-block-count-/) as HTMLInputElement;
+    expect(countInput.value).toBe('4');
+
+    // Change 4 → 5
+    fireEvent.change(countInput, { target: { value: '5' } });
+
+    // Still only 2 child cards
+    expect(screen.getByTestId('segment-0')).toBeInTheDocument();
+    expect(screen.getByTestId('segment-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('segment-2')).not.toBeInTheDocument();
+
+    // Payload reflects count 5 on both children
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => { expect(mockCreateActivity).toHaveBeenCalled(); });
+    const payload = mockCreateActivity.mock.calls[0][0];
+    expect(payload.segments).toHaveLength(2);
+    expect((payload.segments![0] as any).repeatCount).toBe(5);
+    expect((payload.segments![1] as any).repeatCount).toBe(5);
+  });
+
+  // 4 — Editing a child step changes the single definition
+  it('editing a child step changes the single definition', async () => {
+    renderPage();
+    await waitFor(() => { expect(mockGetSettings).toHaveBeenCalled(); });
+    addStep('interval');
+    addStep('recovery');
+
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '1' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '3' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    // Edit child step 0's duration
+    fireEvent.click(screen.getByTestId('segment-0'));
+    const durationInput = screen.getByTestId('segment-0-duration');
+    fireEvent.change(durationInput, { target: { value: '0:06:00' } });
+    fireEvent.blur(durationInput);
+
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => { expect(mockCreateActivity).toHaveBeenCalled(); });
+    const payload = mockCreateActivity.mock.calls[0][0];
+    const segs = payload.segments as any[];
+    // Only one definition exists for child 0 — durationSeconds updated once
+    expect(segs).toHaveLength(2);
+    expect(segs[0].durationSeconds).toBe(360);
+  });
+
+  // 5 — Planned duration reflects expansion
+  it('planned duration reflects the expanded repeat sequence', async () => {
+    renderPage();
+    await waitFor(() => { expect(mockGetSettings).toHaveBeenCalled(); });
+    addStep('interval');
+    addStep('recovery');
+
+    // Set child durations: 6:00 and 3:00
+    fireEvent.click(screen.getByTestId('segment-0'));
+    fireEvent.change(screen.getByTestId('segment-0-duration'), { target: { value: '0:06:00' } });
+    fireEvent.blur(screen.getByTestId('segment-0-duration'));
+    fireEvent.click(screen.getByTestId('segment-1'));
+    fireEvent.change(screen.getByTestId('segment-1-duration'), { target: { value: '0:03:00' } });
+    fireEvent.blur(screen.getByTestId('segment-1-duration'));
+
+    // Group and repeat 4x
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '1' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '4' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    // Expanded duration = 4 * (360 + 180) = 2160s = 36:00
+    await waitFor(() => {
+      expect(screen.getByTestId('preview-duration')).toHaveTextContent('36:00');
+    });
+
+    // Submit sends expanded duration but logical (2) segments
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => { expect(mockCreateActivity).toHaveBeenCalled(); });
+    const payload = mockCreateActivity.mock.calls[0][0];
+    expect(payload.plannedDurationSeconds).toBe(2160);
+    expect(payload.segments).toHaveLength(2);
+  });
+
+  // 6 — Save includes segments with repeat metadata (not flattened copies)
+  it('save payload includes logical segments with repeat metadata, not expanded copies', async () => {
+    renderPage();
+    await waitFor(() => { expect(mockGetSettings).toHaveBeenCalled(); });
+    addStep('warmup');
+    addStep('interval');
+    addStep('recovery');
+    addStep('cooldown');
+
+    // Group steps 2..3 (the interval + recovery), repeat 5x
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '5' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => { expect(mockCreateActivity).toHaveBeenCalled(); });
+    const payload = mockCreateActivity.mock.calls[0][0];
+    // 4 logical segments (NOT 2 + 5*2 = 12)
+    expect(payload.segments).toHaveLength(4);
+    // The two middle segments carry the repeat metadata
+    expect((payload.segments![1] as any).repeatId).toBeTruthy();
+    expect((payload.segments![1] as any).repeatCount).toBe(5);
+    expect((payload.segments![2] as any).repeatId).toBe((payload.segments![1] as any).repeatId);
+    // Bookends carry no repeat metadata
+    expect((payload.segments![0] as any).repeatId).toBeUndefined();
+    expect((payload.segments![3] as any).repeatId).toBeUndefined();
+  });
+
+  // 7 — Load path re-renders blocks from persisted metadata
+  it('edit mode re-renders a repeat block from persisted segments', async () => {
+    mockGetWorkout.mockResolvedValue({
+      id: 'edit-repeat',
+      activityType: 'ride',
+      date: '2024-08-20',
+      segments: [
+        { type: 'warmup', durationSeconds: 600 },
+        { type: 'interval', durationSeconds: 360, powerMin: 90, powerMax: 90, repeatId: 'blk-1', repeatCount: 4 },
+        { type: 'recovery', durationSeconds: 180, powerMin: 50, powerMax: 50, repeatId: 'blk-1', repeatCount: 4 },
+        { type: 'cooldown', durationSeconds: 600 },
+      ],
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/activities/edit-repeat/edit']}>
+        <Routes>
+          <Route path="/activities/:id/edit" element={<PlanActivityPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('page-title')).toHaveTextContent('Edit Activity');
+    });
+
+    // The repeat block renders with its count input showing 4
+    const countInput = screen.getByTestId('repeat-block-count-blk-1') as HTMLInputElement;
+    expect(countInput.value).toBe('4');
+
+    // Expanded duration in preview: 600 + 4*(360+180) + 600 = 3360s = 56:00
+    await waitFor(() => {
+      expect(screen.getByTestId('preview-duration')).toHaveTextContent('56:00');
+    });
+  });
+
+  // 8 — Existing non-repeat workout still works
+  it('a non-repeat workout still submits normally', async () => {
+    renderPage();
+    await waitFor(() => { expect(mockGetSettings).toHaveBeenCalled(); });
+    addStep('interval');
+    fireEvent.click(screen.getByTestId('segment-0'));
+    fireEvent.change(screen.getByTestId('segment-0-duration'), { target: { value: '1:00:00' } });
+    fireEvent.blur(screen.getByTestId('segment-0-duration'));
+    fireEvent.change(screen.getByTestId('segment-0-power-min'), { target: { value: '80' } });
+    fireEvent.change(screen.getByTestId('segment-0-power-max'), { target: { value: '80' } });
+
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => { expect(mockCreateActivity).toHaveBeenCalled(); });
+    const payload = mockCreateActivity.mock.calls[0][0];
+    expect(payload.segments).toHaveLength(1);
+    expect((payload.segments![0] as any).repeatId).toBeUndefined();
+    expect(payload.plannedDurationSeconds).toBe(3600);
+    expect(payload.plannedTss).toBe(64);
+  });
+
+  // Repeat count = 1 allowed (block executes once, not auto-unwrapped)
+  it('allows a repeat count of 1', async () => {
+    renderPage();
+    await waitFor(() => { expect(mockGetSettings).toHaveBeenCalled(); });
+    addStep('interval');
+    addStep('recovery');
+
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '1' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    const countInput = screen.getByTestId(/^repeat-block-count-/) as HTMLInputElement;
+    expect(countInput.value).toBe('1');
+
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => { expect(mockCreateActivity).toHaveBeenCalled(); });
+    const payload = mockCreateActivity.mock.calls[0][0];
+    // Block preserved (still 2 segments carrying repeat metadata), not auto-unwrapped
+    expect(payload.segments).toHaveLength(2);
+    expect((payload.segments![0] as any).repeatCount).toBe(1);
+    expect((payload.segments![0] as any).repeatId).toBeTruthy();
+  });
+
+  // --- PLAN-046A: repeat-block indexing regression ---
+  // With the pre-fix implementation, block children were renumbered locally
+  // (1, 2, ...) and each block collapsed into one global slot. A second
+  // Start/End selection then converted the visible numbers to the WRONG flat
+  // indices and re-tagged the FIRST block's children. The fix makes every
+  // segment's visible number equal to flatIndex + 1, so the selectors map
+  // deterministically onto the flat segments[] array.
+
+  it('creates two independent, non-overlapping repeat blocks with distinct repeatIds (PLAN-046A)', async () => {
+    renderPage();
+    await waitFor(() => { expect(mockGetSettings).toHaveBeenCalled(); });
+
+    // 6 steps: Warmup, Z2, Hard, Recovery, Tempo, Cooldown
+    addStep('warmup');   // step 1 (flatIndex 0)
+    addStep('interval'); // step 2 (flatIndex 1)
+    addStep('interval'); // step 3 (flatIndex 2)
+    addStep('recovery'); // step 4 (flatIndex 3)
+    addStep('interval'); // step 5 (flatIndex 4) — Tempo
+    addStep('cooldown'); // step 6 (flatIndex 5)
+
+    // Block A: group global steps 3-4 (flatIndex 2,3).
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '4' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '3' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    // Block B: group global steps 5-6 (flatIndex 4,5). These are the GLOBAL
+    // numbers still shown on the cards after block A was created — the whole
+    // point of the fix. (Pre-fix, Tempo/Cooldown would appear as "3"/"4".)
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '5' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '6' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '7' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => { expect(mockCreateActivity).toHaveBeenCalled(); });
+    const payload = mockCreateActivity.mock.calls[0][0];
+    const segs = payload.segments as any[];
+
+    // No flattening / growth — still exactly 6 logical segments.
+    expect(segs).toHaveLength(6);
+
+    // Block A = segments[2],[3]; Block B = segments[4],[5].
+    expect(segs[2].repeatId).toBeTruthy();
+    expect(segs[2].repeatId).toBe(segs[3].repeatId);
+    expect(segs[4].repeatId).toBeTruthy();
+    expect(segs[4].repeatId).toBe(segs[5].repeatId);
+
+    // The two blocks are independent (distinct repeatIds).
+    expect(segs[2].repeatId).not.toBe(segs[4].repeatId);
+
+    // The bookend standalone steps carry no repeat metadata.
+    expect(segs[0].repeatId).toBeUndefined();
+    expect(segs[1].repeatId).toBeUndefined();
+
+    // Repeat counts are independent per block.
+    expect(segs[2].repeatCount).toBe(3);
+    expect(segs[3].repeatCount).toBe(3);
+    expect(segs[4].repeatCount).toBe(7);
+    expect(segs[5].repeatCount).toBe(7);
+  });
+
+  it('changing block B count does not change block A count (PLAN-046A)', async () => {
+    renderPage();
+    await waitFor(() => { expect(mockGetSettings).toHaveBeenCalled(); });
+
+    addStep('warmup');   // step 1 (flatIndex 0)
+    addStep('interval'); // step 2 (flatIndex 1)
+    addStep('interval'); // step 3 (flatIndex 2)
+    addStep('recovery'); // step 4 (flatIndex 3)
+    addStep('interval'); // step 5 (flatIndex 4)
+    addStep('cooldown'); // step 6 (flatIndex 5)
+
+    // Block A: steps 3-4, count 3.
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '4' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '3' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    // Block B: steps 5-6, count 2.
+    fireEvent.change(screen.getByTestId('repeat-start-input'), { target: { value: '5' } });
+    fireEvent.change(screen.getByTestId('repeat-end-input'), { target: { value: '6' } });
+    fireEvent.change(screen.getByTestId('repeat-count-input'), { target: { value: '2' } });
+    fireEvent.click(screen.getByTestId('repeat-btn'));
+
+    // Grab both block count inputs (keyed by repeatId) via the segment payload.
+    // Change block B's count in the UI to 9, then submit and verify block A stayed 3.
+    const countInputs = screen.getAllByTestId(/^repeat-block-count-/) as HTMLInputElement[];
+    expect(countInputs).toHaveLength(2);
+    // Block A renders before block B (segments[2..3] precede [4..5]).
+    const [blockACount, blockBCount] = countInputs;
+    expect(blockACount.value).toBe('3');
+    expect(blockBCount.value).toBe('2');
+
+    fireEvent.change(blockBCount, { target: { value: '9' } });
+
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    await waitFor(() => { expect(mockCreateActivity).toHaveBeenCalled(); });
+    const payload = mockCreateActivity.mock.calls[0][0];
+    const segs = payload.segments as any[];
+
+    expect(segs).toHaveLength(6);
+    // Block A unchanged at 3.
+    expect(segs[2].repeatCount).toBe(3);
+    expect(segs[3].repeatCount).toBe(3);
+    // Block B changed to 9.
+    expect(segs[4].repeatCount).toBe(9);
+    expect(segs[5].repeatCount).toBe(9);
   });
 });

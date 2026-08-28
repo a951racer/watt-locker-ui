@@ -60,8 +60,8 @@ describe('WorkoutTable', () => {
     renderTable();
 
     expect(screen.getByText('Date')).toBeInTheDocument();
-    expect(screen.getByText('Name')).toBeInTheDocument();
-    expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByText('Title')).toBeInTheDocument();
+    expect(screen.getByText('Moving Time')).toBeInTheDocument();
     expect(screen.getByText('Distance')).toBeInTheDocument();
     expect(screen.getByText('Avg Power')).toBeInTheDocument();
     expect(screen.getByText('Normalized Power')).toBeInTheDocument();
@@ -81,10 +81,10 @@ describe('WorkoutTable', () => {
     const onSort = vi.fn();
     renderTable({ onSort });
 
-    fireEvent.click(screen.getByText('Name'));
+    fireEvent.click(screen.getByText('Title'));
     expect(onSort).toHaveBeenCalledWith('name');
 
-    fireEvent.click(screen.getByText('Duration'));
+    fireEvent.click(screen.getByText('Moving Time'));
     expect(onSort).toHaveBeenCalledWith('duration');
   });
 
@@ -99,7 +99,7 @@ describe('WorkoutTable', () => {
   it('displays ascending sort indicator', () => {
     renderTable({ sortBy: 'name', sortOrder: 'asc' });
 
-    const nameHeader = screen.getByText('Name').closest('th');
+    const nameHeader = screen.getByText('Title').closest('th');
     expect(nameHeader).toHaveAttribute('aria-sort', 'ascending');
     expect(nameHeader?.textContent).toContain('▲');
   });

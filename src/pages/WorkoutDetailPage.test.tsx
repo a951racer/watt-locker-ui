@@ -418,3 +418,297 @@ describe('WorkoutDetailPage — Distance & Speed Comparison (PLAN-032A)', () => 
     expect(screen.queryByTestId('planned-vs-actual')).not.toBeInTheDocument();
   });
 });
+
+// Mock the workouts API for source provenance tests
+vi.mock('../api/workouts', () => ({
+  getWorkoutSources: vi.fn().mockResolvedValue([]),
+  deleteWorkout: vi.fn(),
+}));
+
+import { getWorkoutSources } from '../api/workouts';
+const mockGetWorkoutSources = vi.mocked(getWorkoutSources);
+
+const baseWorkout = {
+  id: 'workout-prov',
+  userId: 'user-1',
+  activityType: 'ride',
+  status: 'completed',
+  startTime: '2027-03-10T08:00:00Z',
+  endTime: '2027-03-10T09:30:00Z',
+  durationSeconds: 5400,
+  distanceMeters: 42000,
+  elevationGainMeters: 350,
+  dataSource: 'manual',
+  createdAt: '2027-03-10T08:00:00Z',
+  updatedAt: '2027-03-10T08:00:00Z',
+};
+
+describe('WorkoutDetailPage — Source Provenance (PLAN-041)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetchWorkout.mockResolvedValue(undefined);
+    mockUpdateWorkout.mockResolvedValue(undefined);
+  });
+
+  it('renders Source section with Drive archive info when primary artifact is Drive-backed', async () => {
+    mockGetWorkoutSources.mockResolvedValue([
+      {
+        id: 'artifact-1',
+        userId: 'user-1',
+        source: 'manual',
+        format: 'fit',
+        originalFileName: '2027-03-10_morning-ride.fit',
+        importedAt: '2027-03-10T08:05:00Z',
+        driveFileId: 'drive-abc-123',
+        driveWebViewLink: 'https://drive.google.com/file/d/drive-abc-123/view',
+        role: 'primary',
+        materialized: true,
+        activityId: 'workout-prov',
+        createdAt: '2027-03-10T08:05:00Z',
+        updatedAt: '2027-03-10T08:05:00Z',
+      },
+    ]);
+
+    mockUseWorkoutStore.mockReturnValue({
+      currentWorkout: baseWorkout,
+      isLoading: false,
+      error: null,
+      fetchWorkout: mockFetchWorkout,
+      updateWorkout: mockUpdateWorkout,
+    } as any);
+
+    renderDetailPage('workout-prov');
+
+    // Wait for async source loading
+    const sourceSection = await screen.findByTestId('source-provenance');
+    expect(sourceSection).toBeInTheDocument();
+
+    // Format, filename, imported date
+    expect(screen.getByText('FIT')).toBeInTheDocument();
+    expect(screen.getByText('2027-03-10_morning-ride.fit')).toBeInTheDocument();
+    expect(screen.getByText('Google Drive')).toBeInTheDocument();
+
+    // Drive link
+    const driveLink = screen.getByText('Open in Google Drive →');
+    expect(driveLink).toHaveAttribute('href', 'https://drive.google.com/file/d/drive-abc-123/view');
+    expect(driveLink).toHaveAttribute('target', '_blank');
+  });
+
+  it('renders Source section with fallback info when Drive archival failed', async () => {
+    mockGetWorkoutSources.mockResolvedValue([
+      {
+        id: 'artifact-2',
+        userId: 'user-1',
+        source: 'manual',
+        format: 'tcx',
+        originalFileName: 'trainer-session.tcx',
+        importedAt: '2027-03-11T10:00:00Z',
+        driveFileId: 'local',
+        role: 'primary',
+        materialized: true,
+        activityId: 'workout-prov',
+        createdAt: '2027-03-11T10:00:00Z',
+        updatedAt: '2027-03-11T10:00:00Z',
+      },
+    ]);
+
+    mockUseWorkoutStore.mockReturnValue({
+      currentWorkout: baseWorkout,
+      isLoading: false,
+      error: null,
+      fetchWorkout: mockFetchWorkout,
+      updateWorkout: mockUpdateWorkout,
+    } as any);
+
+    renderDetailPage('workout-prov');
+
+    const sourceSection = await screen.findByTestId('source-provenance');
+    expect(sourceSection).toBeInTheDocument();
+
+    expect(screen.getByText('TCX')).toBeInTheDocument();
+    expect(screen.getByText('trainer-session.tcx')).toBeInTheDocument();
+    expect(screen.getByText('Local backup')).toBeInTheDocument();
+    expect(screen.getByText(/retained safely/)).toBeInTheDocument();
+
+    // No Drive link
+    expect(screen.queryByText('Open in Google Drive →')).not.toBeInTheDocument();
+  });
+
+  it('does NOT render Source section when no artifacts exist', async () => {
+    mockGetWorkoutSources.mockResolvedValue([]);
+
+    mockUseWorkoutStore.mockReturnValue({
+      currentWorkout: baseWorkout,
+      isLoading: false,
+      error: null,
+      fetchWorkout: mockFetchWorkout,
+      updateWorkout: mockUpdateWorkout,
+    } as any);
+
+    renderDetailPage('workout-prov');
+
+    // Give time for the async call to resolve
+    await vi.waitFor(() => {
+      expect(mockGetWorkoutSources).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByTestId('source-provenance')).not.toBeInTheDocument();
+  });
+
+  it('displays primary artifact when secondary artifacts also exist', async () => {
+    mockGetWorkoutSources.mockResolvedValue([
+      {
+        id: 'artifact-secondary',
+        userId: 'user-1',
+        source: 'manual',
+        format: 'fit',
+        originalFileName: 'secondary.fit',
+        importedAt: '2027-03-10T09:00:00Z',
+        driveFileId: 'drive-secondary',
+        driveWebViewLink: 'https://drive.google.com/file/d/drive-secondary/view',
+        role: 'secondary',
+        materialized: false,
+        activityId: 'workout-prov',
+        createdAt: '2027-03-10T09:00:00Z',
+        updatedAt: '2027-03-10T09:00:00Z',
+      },
+      {
+        id: 'artifact-primary',
+        userId: 'user-1',
+        source: 'manual',
+        format: 'gpx',
+        originalFileName: 'primary-source.gpx',
+        importedAt: '2027-03-10T08:00:00Z',
+        driveFileId: 'drive-primary',
+        driveWebViewLink: 'https://drive.google.com/file/d/drive-primary/view',
+        role: 'primary',
+        materialized: true,
+        activityId: 'workout-prov',
+        createdAt: '2027-03-10T08:00:00Z',
+        updatedAt: '2027-03-10T08:00:00Z',
+      },
+    ]);
+
+    mockUseWorkoutStore.mockReturnValue({
+      currentWorkout: baseWorkout,
+      isLoading: false,
+      error: null,
+      fetchWorkout: mockFetchWorkout,
+      updateWorkout: mockUpdateWorkout,
+    } as any);
+
+    renderDetailPage('workout-prov');
+
+    const sourceSection = await screen.findByTestId('source-provenance');
+    expect(sourceSection).toBeInTheDocument();
+
+    // Shows primary, not secondary
+    expect(screen.getByText('GPX')).toBeInTheDocument();
+    expect(screen.getByText('primary-source.gpx')).toBeInTheDocument();
+    expect(screen.queryByText('secondary.fit')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PLAN-048 — Edit Skipped Workouts
+// ---------------------------------------------------------------------------
+
+const mockNavigate = vi.fn();
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+function makePlanningWorkout(overrides: Record<string, unknown>) {
+  return {
+    id: 'plan-1',
+    userId: 'user-1',
+    activityType: 'ride',
+    startTime: '2027-05-01T10:00:00Z',
+    endTime: '2027-05-01T11:00:00Z',
+    durationSeconds: 3600,
+    distanceMeters: 30000,
+    elevationGainMeters: 200,
+    dataSource: 'manual',
+    plannedDurationSeconds: 3600,
+    plannedTss: 60,
+    plannedIf: 0.8,
+    createdAt: '2027-05-01T10:00:00Z',
+    updatedAt: '2027-05-01T10:00:00Z',
+    ...overrides,
+  };
+}
+
+describe('WorkoutDetailPage — Edit Workout control (PLAN-048)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetchWorkout.mockResolvedValue(undefined);
+    mockUpdateWorkout.mockResolvedValue(undefined);
+    mockGetWorkoutSources.mockResolvedValue([]);
+  });
+
+  it('Test 1 — shows Edit Workout on a skipped workout', () => {
+    mockUseWorkoutStore.mockReturnValue({
+      currentWorkout: makePlanningWorkout({ id: 'skip-1', status: 'skipped' }),
+      isLoading: false,
+      error: null,
+      fetchWorkout: mockFetchWorkout,
+      updateWorkout: mockUpdateWorkout,
+    } as any);
+
+    renderDetailPage('skip-1');
+
+    const btn = screen.getByTestId('edit-workout-btn');
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveTextContent('Edit Workout');
+  });
+
+  it('Test 2 — completed workout remains read-only (no Edit Workout)', () => {
+    mockUseWorkoutStore.mockReturnValue({
+      currentWorkout: makePlanningWorkout({ id: 'done-1', status: 'completed' }),
+      isLoading: false,
+      error: null,
+      fetchWorkout: mockFetchWorkout,
+      updateWorkout: mockUpdateWorkout,
+    } as any);
+
+    renderDetailPage('done-1');
+
+    expect(screen.queryByTestId('edit-workout-btn')).not.toBeInTheDocument();
+  });
+
+  it('Test 3 — planned workout shows Edit Workout (behavior preserved)', () => {
+    mockUseWorkoutStore.mockReturnValue({
+      currentWorkout: makePlanningWorkout({ id: 'planned-1', status: 'planned' }),
+      isLoading: false,
+      error: null,
+      fetchWorkout: mockFetchWorkout,
+      updateWorkout: mockUpdateWorkout,
+    } as any);
+
+    renderDetailPage('planned-1');
+
+    expect(screen.getByTestId('edit-workout-btn')).toBeInTheDocument();
+  });
+
+  it('Test 4 — clicking Edit Workout navigates to the existing edit route with the workout ID', () => {
+    mockUseWorkoutStore.mockReturnValue({
+      currentWorkout: makePlanningWorkout({ id: 'skip-42', status: 'skipped' }),
+      isLoading: false,
+      error: null,
+      fetchWorkout: mockFetchWorkout,
+      updateWorkout: mockUpdateWorkout,
+    } as any);
+
+    renderDetailPage('skip-42');
+
+    screen.getByTestId('edit-workout-btn').click();
+
+    // Reuses the existing planned-workout editor route; existing ID is supplied
+    expect(mockNavigate).toHaveBeenCalledWith('/activities/skip-42/edit');
+  });
+});

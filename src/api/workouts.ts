@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { WorkoutRecord, PaginationMeta } from '../types/workout';
+import type { WorkoutRecord, PaginationMeta, SourceArtifactSummary } from '../types/workout';
 
 interface ApiEnvelope<T> {
   data: T;
@@ -42,6 +42,7 @@ export interface UploadWorkoutResult {
   summary: { activityType: string; startTime: string; durationSeconds: number; distanceMeters: number };
   matchedExisting?: boolean;
   duplicate?: boolean;
+  archival?: 'drive' | 'fallback';
 }
 
 export async function uploadWorkout(file: File): Promise<UploadWorkoutResult> {
@@ -145,6 +146,11 @@ export async function recalculateSpeed(): Promise<{ total: number; updated: numb
 
 export async function deleteWorkout(id: string, removeFromDrive: boolean = false): Promise<void> {
   await apiClient.delete(`/workouts/${id}`, { params: removeFromDrive ? { removeFromDrive: 'true' } : {} });
+}
+
+export async function getWorkoutSources(workoutId: string): Promise<SourceArtifactSummary[]> {
+  const { data } = await apiClient.get<ApiEnvelope<SourceArtifactSummary[]>>(`/workouts/${workoutId}/sources`);
+  return data.data;
 }
 
 export async function moveActivity(id: string, date: string): Promise<WorkoutRecord> {

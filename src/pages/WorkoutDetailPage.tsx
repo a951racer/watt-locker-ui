@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkoutStore } from '../store/workoutStore';
+import { getWorkoutSources } from '../api/workouts';
+import type { SourceArtifactSummary } from '../types/workout';
 import { formatDate, formatDuration, formatDistance, formatPower } from '../utils/formatting';
 
 function formatSpeed(mps: number | undefined): string {
@@ -40,10 +42,17 @@ export default function WorkoutDetailPage() {
   const [newTag, setNewTag] = useState('');
   const [isEditingComment, setIsEditingComment] = useState(false);
   const [editComment, setEditComment] = useState('');
+  const [primarySource, setPrimarySource] = useState<SourceArtifactSummary | null>(null);
 
   useEffect(() => {
     if (id) {
       fetchWorkout(id);
+      getWorkoutSources(id)
+        .then((artifacts) => {
+          const primary = artifacts.find((a) => a.role === 'primary') ?? null;
+          setPrimarySource(primary);
+        })
+        .catch(() => setPrimarySource(null));
     }
   }, [id, fetchWorkout]);
 
@@ -87,13 +96,22 @@ export default function WorkoutDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4">
         <button
           onClick={() => navigate(-1)}
           className="text-brightCyan hover:text-pureWhite transition-colors text-sm"
         >
           ← Back
         </button>
+        {(workout.status === 'planned' || workout.status === 'skipped') && (
+          <button
+            onClick={() => navigate(`/activities/${workout.id}/edit`)}
+            className="px-4 py-2 rounded bg-electricBlue text-pureWhite hover:bg-brightCyan transition-colors text-sm"
+            data-testid="edit-workout-btn"
+          >
+            Edit Workout
+          </button>
+        )}
       </div>
 
       <div className="space-y-1">
@@ -402,6 +420,42 @@ export default function WorkoutDetailPage() {
           <DetailItem label="Updated" value={formatDate(workout.updatedAt)} />
         </div>
       </div>
+
+      {/* Source Provenance */}
+      {primarySource && (
+        <div className="rounded-lg bg-midnightBlue border border-steelBlue p-4 space-y-2" data-testid="source-provenance">
+          <h2 className="text-sm font-semibold text-softFog uppercase tracking-wide">Source</h2>
+          <dl className="space-y-1">
+            <DetailItem label="Format" value={primarySource.format.toUpperCase()} />
+            <DetailItem label="Filename" value={primarySource.originalFileName} />
+            <DetailItem label="Imported" value={formatDate(primarySource.importedAt)} />
+            {primarySource.driveFileId !== 'local' ? (
+              <>
+                <DetailItem label="Archive" value="Google Drive" />
+                {primarySource.driveWebViewLink && (
+                  <div className="pt-1">
+                    <a
+                      href={primarySource.driveWebViewLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-brightCyan hover:text-pureWhite transition"
+                    >
+                      Open in Google Drive →
+                    </a>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <DetailItem label="Archive" value="Local backup" />
+                <p className="text-xs text-softFog pt-1">
+                  Source file retained safely. Google Drive archival was not available.
+                </p>
+              </>
+            )}
+          </dl>
+        </div>
+      )}
 
       {/* Delete Workout */}
       <div className="pt-4 border-t border-steelBlue/30">

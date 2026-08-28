@@ -72,3 +72,23 @@ export interface PaginationMeta {
   totalItems: number;
   totalPages: number;
 }
+
+/** Source artifact summary returned by GET /api/workouts/:id/sources */
+export interface SourceArtifactSummary {
+  id: string;
+  userId: string;
+  source: string;
+  format: string;
+  originalFileName: string;
+  importedAt: string;
+  driveFileId: string;
+  driveWebViewLink?: string;
+  role: 'primary' | 'secondary';
+  materialized: boolean;
+  startTime?: string;
+  durationSeconds?: number;
+  activityType?: string;
+  activityId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

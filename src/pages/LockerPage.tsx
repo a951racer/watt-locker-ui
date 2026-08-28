@@ -27,6 +27,8 @@ export default function LockerPage() {
       const result = await uploadWorkout(file);
       if (result.duplicate) {
         setSingleStatus({ type: 'success', message: `"${file.name}" has already been imported.` });
+      } else if (result.archival === 'fallback') {
+        setSingleStatus({ type: 'success', message: `"${file.name}" uploaded successfully, but could not be archived to Google Drive. The source file was retained safely.` });
       } else {
         setSingleStatus({ type: 'success', message: `"${file.name}" uploaded successfully.` });
       }

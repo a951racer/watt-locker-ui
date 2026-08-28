@@ -23,6 +23,57 @@ export interface PlanSegment {
   cadenceMin?: number;
   cadenceMax?: number;
   notes?: string;
+  // PLAN-046: repeat-block metadata (Option B — flat segments tagged with group info).
+  // Contiguous segments sharing the same repeatId form one logical repeat block.
+  repeatId?: string;
+  // The repeat count for the block, stored on every child segment of the block.
+  // The first child's value is authoritative.
+  repeatCount?: number;
+}
+
+/**
+ * PLAN-046: Expand repeat blocks into the flat execution sequence.
+ *
+ * For a contiguous run of segments sharing a `repeatId` with `repeatCount = N`,
+ * the run is emitted N times (repeat metadata stripped from the expanded copies).
+ * Segments without a `repeatId` pass through once, unchanged.
+ *
+ * This is the ONLY place expansion happens. The calculation functions call this
+ * first, then run the existing math on the expanded array.
+ */
+export function expandSegments(segments: PlanSegment[]): PlanSegment[] {
+  const result: PlanSegment[] = [];
+  let i = 0;
+  while (i < segments.length) {
+    const seg = segments[i];
+    if (!seg.repeatId) {
+      // Not part of a repeat block — pass through once.
+      result.push(seg);
+      i += 1;
+      continue;
+    }
+    // Gather the contiguous run sharing this repeatId.
+    const repeatId = seg.repeatId;
+    let j = i;
+    while (j < segments.length && segments[j].repeatId === repeatId) {
+      j += 1;
+    }
+    const run = segments.slice(i, j);
+    // First child's count is authoritative; default to 1, floor to >= 1 integer.
+    const rawCount = run[0].repeatCount;
+    const count = Number.isFinite(rawCount) && (rawCount as number) >= 1
+      ? Math.floor(rawCount as number)
+      : 1;
+    for (let rep = 0; rep < count; rep++) {
+      for (const child of run) {
+        // Strip repeat metadata from expanded copies.
+        const { repeatId: _rid, repeatCount: _rc, ...rest } = child;
+        result.push({ ...rest });
+      }
+    }
+    i = j;
+  }
+  return result;
 }
 
 export interface FtpHistoryEntry {
@@ -104,9 +155,10 @@ export function calculateSegmentTss(
 }
 
 /**
- * Calculate total TSS from all segments.
+ * Calculate total TSS from all segments using normalized intensity.
+ * TSS = (totalDuration / 3600) × IF² × 100
+ * where IF is the 4th-power normalized intensity factor.
  * Returns null if FTP is not available.
- * Skips HR-based segments (they contribute 0 TSS).
  */
 export function calculateTotalTss(
   segments: PlanSegment[],
@@ -114,13 +166,17 @@ export function calculateTotalTss(
   activityMetric: IntensityMetric = 'power_ftp',
 ): number | null {
   if (ftp === null || ftp <= 0) return null;
-  const total = segments.reduce((sum, seg) => sum + calculateSegmentTss(seg, ftp, activityMetric), 0);
-  return total;
+  const expanded = expandSegments(segments);
+  const ifValue = calculateIF(expanded, ftp, activityMetric);
+  if (ifValue === null || ifValue <= 0) return null;
+  const totalDuration = expanded.reduce((sum, seg) => sum + seg.durationSeconds, 0);
+  return tssFromIF(ifValue, totalDuration);
 }
 
 /**
- * Calculate estimated IF from segments.
- * IF = duration-weighted average power / FTP
+ * Calculate estimated IF from segments using 4th-power normalized intensity.
+ * normalizedPower = (Σ(segPower⁴ × segDuration) / totalDuration)^(1/4)
+ * IF = normalizedPower / FTP
  * Returns null if FTP is not available or no power-based segments exist.
  */
 export function calculateIF(
@@ -129,21 +185,23 @@ export function calculateIF(
   activityMetric: IntensityMetric = 'power_ftp',
 ): number | null {
   if (ftp === null || ftp <= 0 || segments.length === 0) return null;
-  const totalDuration = segments.reduce((sum, seg) => sum + seg.durationSeconds, 0);
+  const expanded = expandSegments(segments);
+  const totalDuration = expanded.reduce((sum, seg) => sum + seg.durationSeconds, 0);
   if (totalDuration === 0) return null;
-  const weightedPower = segments.reduce((sum, seg) => {
-    return sum + getSegmentAvgPowerWatts(seg, ftp, activityMetric) * seg.durationSeconds;
+  const weightedPower4 = expanded.reduce((sum, seg) => {
+    const power = getSegmentAvgPowerWatts(seg, ftp, activityMetric);
+    return sum + Math.pow(power, 4) * seg.durationSeconds;
   }, 0);
-  const avgPower = weightedPower / totalDuration;
-  if (avgPower <= 0) return null;
-  return avgPower / ftp;
+  const normalizedPower = Math.pow(weightedPower4 / totalDuration, 0.25);
+  if (normalizedPower <= 0) return null;
+  return normalizedPower / ftp;
 }
 
 /**
  * Calculate total duration from segments in seconds.
  */
 export function calculateTotalDuration(segments: PlanSegment[]): number {
-  return segments.reduce((sum, seg) => sum + seg.durationSeconds, 0);
+  return expandSegments(segments).reduce((sum, seg) => sum + seg.durationSeconds, 0);
 }
 
 /**

@@ -98,7 +98,7 @@ describe('Responsive Layout - Requirement 11', () => {
       );
 
       const table = container.querySelector('table');
-      expect(table).toHaveClass('min-w-[700px]');
+      expect(table).toHaveClass('min-w-[750px]');
     });
   });
 
