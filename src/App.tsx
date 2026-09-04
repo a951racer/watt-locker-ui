@@ -15,6 +15,8 @@ import TrainingLogPage from './pages/TrainingLogPage';
 import CalendarPage from './pages/CalendarPage';
 import PlanActivityPage from './pages/PlanActivityPage';
 import TemplateLibraryPage from './pages/TemplateLibraryPage';
+import StepTemplateEditorPage from './pages/StepTemplateEditorPage';
+import BlockTemplateEditorPage from './pages/BlockTemplateEditorPage';
 
 function RootRedirect() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -143,6 +145,48 @@ function App() {
           <ProtectedRoute>
             <AuthenticatedLayout>
               <PlanActivityPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* PLAN-057: Step Template editor (static "steps" segment ranks above /templates/:id/edit) */}
+      <Route
+        path="/templates/steps/new"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <StepTemplateEditorPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/templates/steps/:id/edit"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <StepTemplateEditorPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* PLAN-058: Block Template editor (static "blocks" segment ranks above /templates/:id/edit) */}
+      <Route
+        path="/templates/blocks/new"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <BlockTemplateEditorPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/templates/blocks/:id/edit"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedLayout>
+              <BlockTemplateEditorPage />
             </AuthenticatedLayout>
           </ProtectedRoute>
         }

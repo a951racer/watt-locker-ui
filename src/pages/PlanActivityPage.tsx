@@ -10,10 +10,23 @@ import {
   calculateTotalDuration,
   tssFromIF,
   ifFromTSS,
+  formatHMS,
+  parseHMS,
+  formatDurationPreview,
+  createEmptySegment,
+  generateRepeatId,
+  normalizeSegmentDuration,
+  reorderTopLevelUnit,
+  reorderStepWithinBlock,
   type PlanSegment,
   type IntensityMetric,
   type FtpHistoryEntry,
 } from '../utils/tssCalculator';
+import RepeatBlockEditor from '../components/RepeatBlockEditor';
+import TemplateTray from '../components/TemplateTray';
+import { materializeStepTemplate, materializeBlockTemplate } from '../utils/templateMaterialization';
+import type { StepTemplate } from '../api/stepTemplates';
+import type { BlockTemplate } from '../api/blockTemplates';
 
 // --- Constants ---
 
@@ -28,126 +41,6 @@ const ACTIVITY_TYPES = [
   { value: 'strength', label: 'Strength' },
   { value: 'other', label: 'Other' },
 ];
-
-const SEGMENT_TYPES: PlanSegment['type'][] = ['warmup', 'interval', 'recovery', 'cooldown', 'steady'];
-
-const SEGMENT_LABELS: Record<PlanSegment['type'], string> = {
-  warmup: 'Warm Up',
-  interval: 'Work',
-  recovery: 'Recovery',
-  cooldown: 'Cool Down',
-  steady: 'Steady',
-};
-
-const SEGMENT_COLORS: Record<PlanSegment['type'], string> = {
-  warmup: 'bg-yellow-500',
-  interval: 'bg-red-500',
-  recovery: 'bg-green-500',
-  cooldown: 'bg-blue-500',
-  steady: 'bg-purple-500',
-};
-
-// --- Utility Functions ---
-
-function formatHMS(totalSeconds: number): string {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-function parseHMS(input: string): number | null {
-  const trimmed = input.trim();
-  if (trimmed === '') return null;
-
-  // Bare number (no colon) → interpret as whole minutes (e.g. "30" → 30:00, "90" → 1:30:00).
-  // This matches how athletes naturally enter step durations.
-  if (!trimmed.includes(':')) {
-    const minutes = Number(trimmed);
-    if (!Number.isFinite(minutes) || minutes < 0) return null;
-    return Math.round(minutes * 60);
-  }
-
-  const parts = trimmed.split(':').map(p => (p === '' ? NaN : Number(p)));
-  if (parts.length === 3) {
-    const [h, m, s] = parts;
-    if (isNaN(h) || isNaN(m) || isNaN(s)) return null;
-    if (h < 0 || m < 0 || m > 59 || s < 0 || s > 59) return null;
-    return h * 3600 + m * 60 + s;
-  }
-  if (parts.length === 2) {
-    const [m, s] = parts;
-    if (isNaN(m) || isNaN(s)) return null;
-    if (m < 0 || s < 0 || s > 59) return null;
-    return m * 60 + s;
-  }
-  return null;
-}
-
-function formatDurationPreview(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function formatStepDuration(seconds: number): string {
-  return formatHMS(seconds);
-}
-
-function createEmptySegment(type: PlanSegment['type'] = 'interval'): PlanSegment {
-  return { type, durationSeconds: 300, powerMin: undefined, powerMax: undefined };
-}
-
-// PLAN-046: generate a unique id for a repeat block.
-let repeatIdCounter = 0;
-function generateRepeatId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  repeatIdCounter += 1;
-  return `repeat-${Date.now()}-${repeatIdCounter}`;
-}
-
-/**
- * PLAN-046: Group contiguous flat segments into logical rows for rendering.
- * A row is either a single standalone segment, or a repeat block containing
- * contiguous segments that share a repeatId.
- * `flatIndex` on each child preserves the segment's position in the flat array,
- * which the handlers (update/remove/move) and test ids rely on.
- */
-type RenderChild = { segment: PlanSegment; flatIndex: number };
-type RenderRow =
-  | { kind: 'single'; child: RenderChild }
-  | { kind: 'repeat'; repeatId: string; count: number; children: RenderChild[] };
-
-function buildRenderRows(segments: PlanSegment[]): RenderRow[] {
-  const rows: RenderRow[] = [];
-  let i = 0;
-  while (i < segments.length) {
-    const seg = segments[i];
-    if (!seg.repeatId) {
-      rows.push({ kind: 'single', child: { segment: seg, flatIndex: i } });
-      i += 1;
-      continue;
-    }
-    const repeatId = seg.repeatId;
-    const children: RenderChild[] = [];
-    let j = i;
-    while (j < segments.length && segments[j].repeatId === repeatId) {
-      children.push({ segment: segments[j], flatIndex: j });
-      j += 1;
-    }
-    // First child's count is authoritative.
-    const count = children[0].segment.repeatCount && children[0].segment.repeatCount! >= 1
-      ? Math.floor(children[0].segment.repeatCount!)
-      : 1;
-    rows.push({ kind: 'repeat', repeatId, count, children });
-    i = j;
-  }
-  return rows;
-}
 
 // --- Main Component ---
 
@@ -378,27 +271,57 @@ export default function PlanActivityPage() {
     clearOverrides();
   }, [clearOverrides]);
 
+  // PLAN-061: Apply a reordering transform and keep `expandedStep` pointing at
+  // the SAME segment after the flat indices shift. The reorder helpers preserve
+  // segment object references, so we relocate the expanded step by identity.
+  const applyReorder = useCallback(
+    (compute: (prev: PlanSegment[]) => PlanSegment[]) => {
+      setSegments((prev) => {
+        const next = compute(prev);
+        if (next === prev) return prev; // no-op (boundary) — leave expansion as-is
+        setExpandedStep((cur) => {
+          if (cur === null) return cur;
+          const movedRef = prev[cur];
+          const newIdx = next.indexOf(movedRef);
+          return newIdx === -1 ? cur : newIdx;
+        });
+        return next;
+      });
+      clearOverrides();
+    },
+    [clearOverrides],
+  );
+
+  // PLAN-061: A single step's up/down control.
+  // - If the step belongs to a repeat block, it reorders WITHIN that block
+  //   (clamped to the block's bounds — it can never escape the block here).
+  // - Otherwise it is a standalone top-level unit and reorders around whole
+  //   adjacent units (moving atomically past entire blocks).
   const moveSegmentUp = useCallback((index: number) => {
-    if (index === 0) return;
-    setSegments((prev) => {
-      const next = [...prev];
-      [next[index - 1], next[index]] = [next[index], next[index - 1]];
-      return next;
-    });
-    setExpandedStep((prev) => (prev === index ? index - 1 : prev));
-    clearOverrides();
-  }, [clearOverrides]);
+    applyReorder((prev) =>
+      prev[index]?.repeatId
+        ? reorderStepWithinBlock(prev, index, 'up')
+        : reorderTopLevelUnit(prev, index, 'up'),
+    );
+  }, [applyReorder]);
 
   const moveSegmentDown = useCallback((index: number) => {
-    setSegments((prev) => {
-      if (index >= prev.length - 1) return prev;
-      const next = [...prev];
-      [next[index], next[index + 1]] = [next[index + 1], next[index]];
-      return next;
-    });
-    setExpandedStep((prev) => (prev === index ? index + 1 : prev));
-    clearOverrides();
-  }, [clearOverrides]);
+    applyReorder((prev) =>
+      prev[index]?.repeatId
+        ? reorderStepWithinBlock(prev, index, 'down')
+        : reorderTopLevelUnit(prev, index, 'down'),
+    );
+  }, [applyReorder]);
+
+  // PLAN-061: Move an ENTIRE repeat block (identified by any member index) up
+  // or down as one top-level unit, atomically.
+  const moveBlockUp = useCallback((anyMemberIndex: number) => {
+    applyReorder((prev) => reorderTopLevelUnit(prev, anyMemberIndex, 'up'));
+  }, [applyReorder]);
+
+  const moveBlockDown = useCallback((anyMemberIndex: number) => {
+    applyReorder((prev) => reorderTopLevelUnit(prev, anyMemberIndex, 'down'));
+  }, [applyReorder]);
 
   // PLAN-046: Group a contiguous range of segments into a repeat block.
   // The selectors are 1-based (human-facing); convert to zero-based internally.
@@ -454,6 +377,31 @@ export default function PlanActivityPage() {
       next.splice(lastIdx + 1, 0, newSeg);
       return next;
     });
+    clearOverrides();
+  }, [clearOverrides]);
+
+  // PLAN-059: Insert a Step Template as ONE standalone canonical step.
+  // Materialization deep-copies by value and strips any repeat metadata, so the
+  // inserted step is independent of the template and never becomes a block.
+  // Safe top-level append (no merge with an existing repeat block).
+  const insertStepTemplate = useCallback((template: StepTemplate) => {
+    const step = materializeStepTemplate(template);
+    setSegments((prev) => {
+      const next = [...prev, step];
+      setExpandedStep(next.length - 1);
+      return next;
+    });
+    clearOverrides();
+  }, [clearOverrides]);
+
+  // PLAN-059: Insert a Block Template as ONE repeat block. Materialization
+  // deep-copies steps, assigns a single fresh shared repeatId, and copies the
+  // template's default repeatCount onto each step. Appended at top level so it
+  // cannot inherit or merge with another block's repeatId.
+  const insertBlockTemplate = useCallback((template: BlockTemplate) => {
+    const blockSegments = materializeBlockTemplate(template);
+    if (blockSegments.length === 0) return;
+    setSegments((prev) => [...prev, ...blockSegments]);
     clearOverrides();
   }, [clearOverrides]);
 
@@ -521,7 +469,9 @@ export default function PlanActivityPage() {
       if (tags.trim()) payload.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);
       if (!isTemplateMode && eventId.trim()) payload.eventId = eventId.trim();
 
-      if (segments.length > 0) payload.segments = segments;
+      // PLAN-056: normalize each step's duration invariant (exactly one of
+      // time/distance) at the domain boundary before persisting.
+      if (segments.length > 0) payload.segments = segments.map(normalizeSegmentDuration);
 
       // Use effective TSS/IF values (accounts for overrides and calculations)
       if (segments.length > 0 && segmentPreview) {
@@ -599,7 +549,7 @@ export default function PlanActivityPage() {
       if (targetSpeed.trim()) { const v = parseFloat(targetSpeed); if (!isNaN(v)) templatePayload.targetSpeed = v; }
       if (tags.trim()) templatePayload.tags = tags.split(',').map((t) => t.trim()).filter(Boolean);
 
-      templatePayload.segments = segments;
+      templatePayload.segments = segments.map(normalizeSegmentDuration);
 
       if (segmentPreview) {
         if (segmentPreview.tss !== null && segmentPreview.tss > 0) templatePayload.plannedTss = Math.round(segmentPreview.tss);
@@ -629,7 +579,15 @@ export default function PlanActivityPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4" data-testid="plan-activity-page">
+    <div className="max-w-6xl mx-auto py-6 px-4 flex gap-4 items-start" data-testid="plan-activity-workspace">
+      {/* PLAN-059: Step/Block Template tray (quick insertion). Shown when
+          planning/editing an Activity; not shown when editing a whole-Activity
+          template, which is authored differently. */}
+      {!isTemplateMode && (
+        <TemplateTray onInsertStep={insertStepTemplate} onInsertBlock={insertBlockTemplate} />
+      )}
+
+      <div className="flex-1 min-w-0" data-testid="plan-activity-page">
       <h1 className="text-2xl font-bold text-pureWhite mb-6" data-testid="page-title">
         {isTemplateMode
           ? (isTemplateEdit ? 'Edit Template' : 'New Template')
@@ -771,179 +729,33 @@ export default function PlanActivityPage() {
           <WorkoutSummary preview={segmentPreview} resolvedFtp={resolvedFtp} />
         )}
 
-        {/* Workout Steps Builder */}
-        <section className="bg-charcoalGray rounded-lg p-5 space-y-3" data-testid="segment-builder-section">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold text-pureWhite">Workout Steps</h2>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowAddMenu(!showAddMenu)}
-                className="px-3 py-1.5 rounded bg-electricBlue text-pureWhite hover:bg-brightCyan transition-colors text-sm"
-                data-testid="add-segment-btn"
-              >
-                + Add Step
-              </button>
-              {showAddMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-deepNavy border border-steelBlue rounded-lg shadow-lg z-10 py-1 min-w-[140px]">
-                  {SEGMENT_TYPES.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => addSegment(t)}
-                      className="w-full text-left px-3 py-2 text-sm text-lightSilver hover:bg-steelBlue/50 flex items-center gap-2"
-                      data-testid={`add-step-${t}`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${SEGMENT_COLORS[t]}`} />
-                      {SEGMENT_LABELS[t]}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {segments.length === 0 && (
-            <div className="text-center py-8 text-softFog">
-              <p className="text-sm">No steps yet. Add steps to build your workout.</p>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            {(() => {
-              const rows = buildRenderRows(segments);
-              // PLAN-046A: Every logical segment gets a unique GLOBAL 1-based
-              // number equal to flatIndex + 1 (standalone steps AND repeat-block
-              // children). This keeps the number shown on each card in lockstep
-              // with the flat segments[] index, which is exactly what the repeat
-              // Start/End selectors convert back to (startHuman - 1 === flatIndex).
-              return rows.map((row) => {
-                if (row.kind === 'single') {
-                  const { segment, flatIndex } = row.child;
-                  return (
-                    <StepCard
-                      key={flatIndex}
-                      segment={segment}
-                      index={flatIndex}
-                      displayNumber={flatIndex + 1}
-                      totalCount={segments.length}
-                      expanded={expandedStep === flatIndex}
-                      resolvedFtp={resolvedFtp}
-                      activityMetric={intensityMetric}
-                      onToggle={() => setExpandedStep(expandedStep === flatIndex ? null : flatIndex)}
-                      onUpdate={(updates) => updateSegment(flatIndex, updates)}
-                      onRemove={() => removeSegment(flatIndex)}
-                      onDuplicate={() => duplicateSegment(flatIndex)}
-                      onMoveUp={() => moveSegmentUp(flatIndex)}
-                      onMoveDown={() => moveSegmentDown(flatIndex)}
-                    />
-                  );
-                }
-                // Repeat block — the container renders visually distinct, but
-                // each child card keeps its true global step number (flatIndex + 1).
-                return (
-                  <div
-                    key={`block-${row.repeatId}`}
-                    className="border-2 border-brightCyan rounded-lg p-3 space-y-2"
-                    data-testid={`repeat-block-${row.repeatId}`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-brightCyan">
-                        <span>Repeat</span>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={row.count}
-                          onChange={(e) => updateRepeatCount(row.repeatId, parseInt(e.target.value, 10) || 1)}
-                          className="w-14 px-2 py-0.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm text-center"
-                          data-testid={`repeat-block-count-${row.repeatId}`}
-                        />
-                        <span>times</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => addSegmentToBlock(row.repeatId, row.count)}
-                        className="px-2 py-1 text-xs rounded bg-steelBlue text-pureWhite hover:bg-brightCyan"
-                        data-testid={`repeat-block-add-${row.repeatId}`}
-                      >
-                        + Add to Block
-                      </button>
-                    </div>
-                    {row.children.map((child) => (
-                      <StepCard
-                        key={child.flatIndex}
-                        segment={child.segment}
-                        index={child.flatIndex}
-                        displayNumber={child.flatIndex + 1}
-                        totalCount={segments.length}
-                        expanded={expandedStep === child.flatIndex}
-                        resolvedFtp={resolvedFtp}
-                        activityMetric={intensityMetric}
-                        onToggle={() => setExpandedStep(expandedStep === child.flatIndex ? null : child.flatIndex)}
-                        onUpdate={(updates) => updateSegment(child.flatIndex, updates)}
-                        onRemove={() => removeSegment(child.flatIndex)}
-                        onDuplicate={() => duplicateSegment(child.flatIndex)}
-                        onMoveUp={() => moveSegmentUp(child.flatIndex)}
-                        onMoveDown={() => moveSegmentDown(child.flatIndex)}
-                      />
-                    ))}
-                  </div>
-                );
-              });
-            })()}
-          </div>
-
-          {/* Repeat controls */}
-          {segments.length >= 2 && (
-            <div className="flex items-end gap-2 bg-deepNavy rounded p-3 border border-steelBlue mt-3" data-testid="repeat-controls">
-              <div>
-                <label className="block text-xs text-softFog mb-0.5">Start step</label>
-                <input
-                  type="number"
-                  min="1"
-                  max={segments.length}
-                  value={repeatStart}
-                  onChange={(e) => setRepeatStart(e.target.value)}
-                  className="w-16 px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-                  data-testid="repeat-start-input"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-softFog mb-0.5">End step</label>
-                <input
-                  type="number"
-                  min="1"
-                  max={segments.length}
-                  value={repeatEnd}
-                  onChange={(e) => setRepeatEnd(e.target.value)}
-                  className="w-16 px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-                  data-testid="repeat-end-input"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-softFog mb-0.5">× Count</label>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={repeatCount}
-                  onChange={(e) => setRepeatCount(e.target.value)}
-                  className="w-16 px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-                  data-testid="repeat-count-input"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleRepeat}
-                className="px-3 py-1.5 rounded bg-steelBlue text-pureWhite hover:bg-brightCyan transition-colors text-sm"
-                data-testid="repeat-btn"
-              >
-                Group into Repeat
-              </button>
-            </div>
-          )}
-        </section>
+        {/* Workout Steps Builder (PLAN-056: extracted reusable component) */}
+        <RepeatBlockEditor
+          segments={segments}
+          expandedStep={expandedStep}
+          resolvedFtp={resolvedFtp}
+          intensityMetric={intensityMetric}
+          showAddMenu={showAddMenu}
+          onToggleAddMenu={() => setShowAddMenu(!showAddMenu)}
+          onAddSegment={(t) => addSegment(t)}
+          onToggleStep={(flatIndex) => setExpandedStep(expandedStep === flatIndex ? null : flatIndex)}
+          onUpdateSegment={(flatIndex, updates) => updateSegment(flatIndex, updates)}
+          onRemoveSegment={(flatIndex) => removeSegment(flatIndex)}
+          onDuplicateSegment={(flatIndex) => duplicateSegment(flatIndex)}
+          onMoveSegmentUp={(flatIndex) => moveSegmentUp(flatIndex)}
+          onMoveSegmentDown={(flatIndex) => moveSegmentDown(flatIndex)}
+          onUpdateRepeatCount={(repeatId, count) => updateRepeatCount(repeatId, count)}
+          onAddSegmentToBlock={(repeatId, count) => addSegmentToBlock(repeatId, count)}
+          onMoveBlockUp={(flatIndex) => moveBlockUp(flatIndex)}
+          onMoveBlockDown={(flatIndex) => moveBlockDown(flatIndex)}
+          repeatStart={repeatStart}
+          repeatEnd={repeatEnd}
+          repeatCount={repeatCount}
+          onRepeatStartChange={setRepeatStart}
+          onRepeatEndChange={setRepeatEnd}
+          onRepeatCountChange={setRepeatCount}
+          onGroupIntoRepeat={handleRepeat}
+        />
 
         {/* Error */}
         {submitError && (
@@ -984,6 +796,7 @@ export default function PlanActivityPage() {
           </div>
         </div>
       </form>
+      </div>
     </div>
   );
 }
@@ -1076,266 +889,3 @@ function WorkoutSummary({ preview, resolvedFtp }: { preview: { totalDuration: nu
   );
 }
 
-function StepCard({ segment, index, displayNumber, totalCount, expanded, resolvedFtp, activityMetric, onToggle, onUpdate, onRemove, onDuplicate, onMoveUp, onMoveDown }: {
-  segment: PlanSegment;
-  index: number;
-  displayNumber: number;
-  totalCount: number;
-  expanded: boolean;
-  resolvedFtp: number | null;
-  activityMetric: IntensityMetric;
-  onToggle: () => void;
-  onUpdate: (updates: Partial<PlanSegment>) => void;
-  onRemove: () => void;
-  onDuplicate: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-}) {
-  const effectiveMetric = segment.intensityMetric || activityMetric;
-  const showPowerFields = effectiveMetric === 'power_ftp' || effectiveMetric === 'power_watts';
-  const showHrFields = effectiveMetric === 'hr_threshold' || effectiveMetric === 'hr_max';
-  const isPctFtp = effectiveMetric === 'power_ftp';
-
-  const powerSummary = useMemo(() => {
-    if (showPowerFields) {
-      const min = segment.powerMin;
-      const max = segment.powerMax;
-      if (!min && !max) return null;
-      if (isPctFtp && resolvedFtp) {
-        // Values are percentages — show derived watts
-        if (min && max && min === max) return `${min}% → ${Math.round((min / 100) * resolvedFtp)} W`;
-        if (min && max) return `${min}–${max}% → ${Math.round((min / 100) * resolvedFtp)}–${Math.round((max / 100) * resolvedFtp)} W`;
-        const val = min || max;
-        if (val) return `${val}% → ${Math.round((val / 100) * resolvedFtp)} W`;
-        return null;
-      }
-      // power_watts or no FTP: show literal watts
-      if (min && max && min === max) return `${min} W`;
-      if (min && max) return `${min}–${max} W`;
-      return `${min || max} W`;
-    } else {
-      const min = segment.hrMin;
-      const max = segment.hrMax;
-      if (!min && !max) return null;
-      const label = effectiveMetric === 'hr_threshold' ? '% Threshold' : '% Max';
-      if (min && max && min === max) return `${min} ${label}`;
-      if (min && max) return `${min}–${max} ${label}`;
-      return `${min || max} ${label}`;
-    }
-  }, [segment.powerMin, segment.powerMax, segment.hrMin, segment.hrMax, resolvedFtp, showPowerFields, isPctFtp, effectiveMetric]);
-
-  // Local state for duration text input (to allow typing partial H:MM:SS).
-  // durationFocused tracks whether the user is actively editing, so we never
-  // reformat the text (and jump the cursor) mid-typing.
-  const [durationText, setDurationText] = useState(formatHMS(segment.durationSeconds));
-  const [durationFocused, setDurationFocused] = useState(false);
-
-  // Sync local text when the segment's duration changes externally (e.g. reorder,
-  // duplicate, load) — but ONLY while the user is not actively editing this field.
-  useEffect(() => {
-    if (!durationFocused) {
-      setDurationText(formatHMS(segment.durationSeconds));
-    }
-  }, [segment.durationSeconds, durationFocused]);
-
-  const handleDurationChange = (value: string) => {
-    // While typing, just track the raw text. Commit a parsed value if it is
-    // currently valid, but never reformat the displayed text here.
-    setDurationText(value);
-    const secs = parseHMS(value);
-    if (secs !== null) {
-      onUpdate({ durationSeconds: secs });
-    }
-  };
-
-  const handleDurationBlur = () => {
-    setDurationFocused(false);
-    // On commit: parse and normalize the display to canonical H:MM:SS.
-    // Invalid/empty input reverts to the last valid segment duration.
-    const secs = parseHMS(durationText);
-    if (secs !== null) {
-      onUpdate({ durationSeconds: secs });
-      setDurationText(formatHMS(secs));
-    } else {
-      setDurationText(formatHMS(segment.durationSeconds));
-    }
-  };
-
-  if (expanded) {
-    return (
-      <div className="bg-deepNavy rounded-lg p-4 border border-electricBlue" data-testid={`segment-${index}`}>
-        <div className="text-xs text-softFog mb-2" data-testid={`segment-${index}-number`}>Step {displayNumber}</div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          <div>
-            <label className="block text-xs text-softFog mb-0.5">Type</label>
-            <select
-              value={segment.type}
-              onChange={(e) => onUpdate({ type: e.target.value as PlanSegment['type'] })}
-              className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-              data-testid={`segment-${index}-type`}
-            >
-              {SEGMENT_TYPES.map((t) => (
-                <option key={t} value={t}>{SEGMENT_LABELS[t]}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-softFog mb-0.5">Duration</label>
-            <input
-              type="text"
-              value={durationText}
-              onChange={(e) => handleDurationChange(e.target.value)}
-              onFocus={() => setDurationFocused(true)}
-              onBlur={handleDurationBlur}
-              className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-              placeholder="mm or h:mm:ss"
-              data-testid={`segment-${index}-duration`}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-softFog mb-0.5">Intensity</label>
-            <select
-              value={segment.intensityMetric || ''}
-              onChange={(e) => onUpdate({ intensityMetric: e.target.value ? e.target.value as IntensityMetric : undefined })}
-              className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-              data-testid={`segment-${index}-metric`}
-            >
-              <option value="">Default</option>
-              <option value="power_ftp">Power — % FTP</option>
-              <option value="hr_threshold">HR — % Threshold</option>
-              <option value="hr_max">HR — % Max</option>
-              <option value="power_watts">Watts</option>
-            </select>
-          </div>
-        </div>
-        {/* Conditional target fields based on effective metric */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          {showPowerFields && (
-            <>
-              <div>
-                <label className="block text-xs text-softFog mb-0.5">
-                  {isPctFtp ? 'Min (% FTP)' : 'Min (W)'}
-                  {isPctFtp && resolvedFtp && segment.powerMin ? ` → ${Math.round((segment.powerMin / 100) * resolvedFtp)} W` : ''}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={segment.powerMin ?? ''}
-                  onChange={(e) => onUpdate({ powerMin: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                  className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-                  data-testid={`segment-${index}-power-min`}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-softFog mb-0.5">
-                  {isPctFtp ? 'Max (% FTP)' : 'Max (W)'}
-                  {isPctFtp && resolvedFtp && segment.powerMax ? ` → ${Math.round((segment.powerMax / 100) * resolvedFtp)} W` : ''}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={segment.powerMax ?? ''}
-                  onChange={(e) => onUpdate({ powerMax: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                  className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-                  data-testid={`segment-${index}-power-max`}
-                />
-              </div>
-            </>
-          )}
-          {showHrFields && (
-            <>
-              <div>
-                <label className="block text-xs text-softFog mb-0.5">HR Min ({effectiveMetric === 'hr_threshold' ? '% Threshold' : '% Max'})</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={segment.hrMin ?? ''}
-                  onChange={(e) => onUpdate({ hrMin: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                  className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-                  data-testid={`segment-${index}-hr-min`}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-softFog mb-0.5">HR Max ({effectiveMetric === 'hr_threshold' ? '% Threshold' : '% Max'})</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={segment.hrMax ?? ''}
-                  onChange={(e) => onUpdate({ hrMax: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                  className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-                  data-testid={`segment-${index}-hr-max`}
-                />
-              </div>
-            </>
-          )}
-          <div>
-            <label className="block text-xs text-softFog mb-0.5">Cadence Min</label>
-            <input
-              type="number"
-              min="0"
-              value={segment.cadenceMin ?? ''}
-              onChange={(e) => onUpdate({ cadenceMin: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-              className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-              data-testid={`segment-${index}-cadence-min`}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-softFog mb-0.5">Cadence Max</label>
-            <input
-              type="number"
-              min="0"
-              value={segment.cadenceMax ?? ''}
-              onChange={(e) => onUpdate({ cadenceMax: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-              className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-              data-testid={`segment-${index}-cadence-max`}
-            />
-          </div>
-        </div>
-        <div className="mb-3">
-          <label className="block text-xs text-softFog mb-0.5">Notes</label>
-          <input
-            type="text"
-            value={segment.notes ?? ''}
-            onChange={(e) => onUpdate({ notes: e.target.value || undefined })}
-            className="w-full px-2 py-1.5 rounded bg-midnightBlue text-lightSilver border border-steelBlue text-sm"
-            placeholder="Step notes..."
-            data-testid={`segment-${index}-notes`}
-          />
-        </div>
-        <div className="flex items-center justify-between border-t border-steelBlue pt-2">
-          <button type="button" onClick={onToggle} className="text-xs text-brightCyan hover:text-pureWhite">Done</button>
-          <div className="flex gap-2">
-            <button type="button" onClick={onMoveUp} disabled={index === 0} className="px-2 py-1 text-xs rounded bg-steelBlue text-pureWhite hover:bg-brightCyan disabled:opacity-30" data-testid={`segment-${index}-move-up`}>↑</button>
-            <button type="button" onClick={onMoveDown} disabled={index === totalCount - 1} className="px-2 py-1 text-xs rounded bg-steelBlue text-pureWhite hover:bg-brightCyan disabled:opacity-30" data-testid={`segment-${index}-move-down`}>↓</button>
-            <button type="button" onClick={onDuplicate} className="px-2 py-1 text-xs rounded bg-steelBlue text-pureWhite hover:bg-brightCyan" data-testid={`segment-${index}-duplicate`}>Duplicate</button>
-            <button type="button" onClick={onRemove} className="px-2 py-1 text-xs rounded bg-red-700 text-pureWhite hover:bg-red-600" data-testid={`segment-${index}-remove`}>Delete</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Collapsed view
-  return (
-    <div
-      className="bg-deepNavy rounded-lg p-3 border border-steelBlue hover:border-electricBlue cursor-pointer transition-colors"
-      data-testid={`segment-${index}`}
-      onClick={onToggle}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs text-softFog w-5 flex-shrink-0 text-right" data-testid={`segment-${index}-number`}>{displayNumber}.</span>
-          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${SEGMENT_COLORS[segment.type]}`} />
-          <span className="text-sm font-medium text-pureWhite w-20">{SEGMENT_LABELS[segment.type]}</span>
-          <span className="text-sm text-lightSilver">{formatStepDuration(segment.durationSeconds)}</span>
-          {powerSummary && <span className="text-sm text-softFog ml-2 truncate">{powerSummary}</span>}
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-          <button type="button" onClick={onMoveUp} disabled={index === 0} className="px-1.5 py-0.5 text-xs rounded text-softFog hover:text-pureWhite disabled:opacity-30" data-testid={`segment-${index}-move-up`}>↑</button>
-          <button type="button" onClick={onMoveDown} disabled={index === totalCount - 1} className="px-1.5 py-0.5 text-xs rounded text-softFog hover:text-pureWhite disabled:opacity-30" data-testid={`segment-${index}-move-down`}>↓</button>
-          <button type="button" onClick={onRemove} className="px-1.5 py-0.5 text-xs rounded text-softFog hover:text-red-400" data-testid={`segment-${index}-remove`}>✕</button>
-        </div>
-      </div>
-    </div>
-  );
-}

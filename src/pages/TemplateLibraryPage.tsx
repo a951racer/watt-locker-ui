@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { listTemplates, deleteWorkout } from '../api/workouts';
 import type { Template, TemplateListResponse } from '../api/workouts';
+import { listStepTemplates, deleteStepTemplate, type StepTemplate } from '../api/stepTemplates';
+import { listBlockTemplates, deleteBlockTemplate, type BlockTemplate } from '../api/blockTemplates';
+import { resolveDurationType, formatHMS } from '../utils/tssCalculator';
 
 const ACTIVITY_TYPES = [
   { value: '', label: 'All Types' },
@@ -34,6 +37,25 @@ function formatDistance(meters: number): string {
   return `${miles.toFixed(1)} mi`;
 }
 
+/** PLAN-057: one-line summary of a Step Template's canonical step. */
+function formatStepSummary(st: StepTemplate): string {
+  const s = st.step;
+  const durationType = resolveDurationType(s);
+  const duration =
+    durationType === 'distance'
+      ? `${((s.distanceMeters ?? 0) / 1609.344).toFixed(2)} mi`
+      : formatHMS(s.durationSeconds ?? 0);
+  const parts: string[] = [duration];
+  if (s.name) parts.unshift(s.name);
+  if (typeof s.powerMin === 'number' || typeof s.powerMax === 'number') {
+    const lo = s.powerMin;
+    const hi = s.powerMax;
+    if (lo && hi) parts.push(`${lo}\u2013${hi}`);
+    else if (lo || hi) parts.push(`${lo || hi}`);
+  }
+  return parts.join(' \u00b7 ');
+}
+
 function formatSegmentSummary(segments: Template['segments']): string {
   if (!segments || segments.length === 0) return '';
   return `${segments.length} segment${segments.length !== 1 ? 's' : ''}`;
@@ -54,6 +76,70 @@ export default function TemplateLibraryPage() {
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // PLAN-057: Step Templates (distinct from Activity Templates)
+  const [stepTemplates, setStepTemplates] = useState<StepTemplate[]>([]);
+  const [stepTemplatesLoading, setStepTemplatesLoading] = useState(true);
+  const [stepTemplatesError, setStepTemplatesError] = useState<string | null>(null);
+
+  const fetchStepTemplates = useCallback(async () => {
+    setStepTemplatesLoading(true);
+    setStepTemplatesError(null);
+    try {
+      const items = await listStepTemplates();
+      setStepTemplates(items);
+    } catch (err) {
+      setStepTemplatesError(err instanceof Error ? err.message : 'Failed to load step templates');
+      setStepTemplates([]);
+    } finally {
+      setStepTemplatesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStepTemplates();
+  }, [fetchStepTemplates]);
+
+  const handleDeleteStepTemplate = async (id: string) => {
+    try {
+      await deleteStepTemplate(id);
+      setStepTemplates((prev) => prev.filter((t) => t.id !== id));
+    } catch (err) {
+      setStepTemplatesError(err instanceof Error ? err.message : 'Failed to delete step template');
+    }
+  };
+
+  // PLAN-058: Block Templates (distinct from Step + Activity Templates)
+  const [blockTemplates, setBlockTemplates] = useState<BlockTemplate[]>([]);
+  const [blockTemplatesLoading, setBlockTemplatesLoading] = useState(true);
+  const [blockTemplatesError, setBlockTemplatesError] = useState<string | null>(null);
+
+  const fetchBlockTemplates = useCallback(async () => {
+    setBlockTemplatesLoading(true);
+    setBlockTemplatesError(null);
+    try {
+      const items = await listBlockTemplates();
+      setBlockTemplates(items);
+    } catch (err) {
+      setBlockTemplatesError(err instanceof Error ? err.message : 'Failed to load block templates');
+      setBlockTemplates([]);
+    } finally {
+      setBlockTemplatesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBlockTemplates();
+  }, [fetchBlockTemplates]);
+
+  const handleDeleteBlockTemplate = async (id: string) => {
+    try {
+      await deleteBlockTemplate(id);
+      setBlockTemplates((prev) => prev.filter((t) => t.id !== id));
+    } catch (err) {
+      setBlockTemplatesError(err instanceof Error ? err.message : 'Failed to delete block template');
+    }
+  };
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -149,6 +235,152 @@ export default function TemplateLibraryPage() {
           + New Template
         </button>
       </div>
+
+      {/* PLAN-057: Step Templates section — distinct from Activity Templates */}
+      <section className="mb-10" data-testid="step-templates-section">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-pureWhite" data-testid="step-templates-heading">
+            Step Templates
+          </h2>
+          <button
+            onClick={() => navigate('/templates/steps/new')}
+            className="px-4 py-2 bg-electricBlue text-pureWhite rounded hover:bg-brightCyan transition-colors font-medium text-sm"
+            data-testid="new-step-template-btn"
+          >
+            + New Step Template
+          </button>
+        </div>
+
+        {stepTemplatesLoading && (
+          <div className="text-center py-6 text-lightSilver" data-testid="step-templates-loading">
+            Loading step templates...
+          </div>
+        )}
+        {stepTemplatesError && !stepTemplatesLoading && (
+          <div className="text-center py-6 text-red-400" data-testid="step-templates-error">
+            {stepTemplatesError}
+          </div>
+        )}
+        {!stepTemplatesLoading && !stepTemplatesError && stepTemplates.length === 0 && (
+          <div className="text-center py-6 text-lightSilver" data-testid="step-templates-empty">
+            No step templates yet.
+          </div>
+        )}
+        {!stepTemplatesLoading && !stepTemplatesError && stepTemplates.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="step-templates-grid">
+            {stepTemplates.map((st) => (
+              <div
+                key={st.id}
+                className="bg-charcoalGray rounded-lg p-4 border border-steelBlue hover:border-electricBlue transition-colors"
+                data-testid="step-template-card"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-pureWhite font-semibold truncate" data-testid="step-template-name">
+                    {st.name}
+                  </h3>
+                  <span className="text-xs text-lightSilver bg-deepNavy px-2 py-1 rounded ml-2 whitespace-nowrap" data-testid="step-template-type">
+                    {st.step.type}
+                  </span>
+                </div>
+                <div className="text-sm text-softFog mb-3" data-testid="step-template-summary">
+                  {formatStepSummary(st)}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate(`/templates/steps/${st.id}/edit`)}
+                    className="flex-1 px-3 py-1.5 bg-steelBlue text-pureWhite rounded hover:bg-gray-600 transition-colors text-sm"
+                    data-testid="edit-step-template-button"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteStepTemplate(st.id)}
+                    className="flex-1 px-3 py-1.5 bg-red-700 text-pureWhite rounded hover:bg-red-600 transition-colors text-sm"
+                    data-testid="delete-step-template-button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* PLAN-058: Block Templates section — distinct from Step + Activity Templates */}
+      <section className="mb-10" data-testid="block-templates-section">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-pureWhite" data-testid="block-templates-heading">
+            Block Templates
+          </h2>
+          <button
+            onClick={() => navigate('/templates/blocks/new')}
+            className="px-4 py-2 bg-electricBlue text-pureWhite rounded hover:bg-brightCyan transition-colors font-medium text-sm"
+            data-testid="new-block-template-btn"
+          >
+            + New Block Template
+          </button>
+        </div>
+
+        {blockTemplatesLoading && (
+          <div className="text-center py-6 text-lightSilver" data-testid="block-templates-loading">
+            Loading block templates...
+          </div>
+        )}
+        {blockTemplatesError && !blockTemplatesLoading && (
+          <div className="text-center py-6 text-red-400" data-testid="block-templates-error">
+            {blockTemplatesError}
+          </div>
+        )}
+        {!blockTemplatesLoading && !blockTemplatesError && blockTemplates.length === 0 && (
+          <div className="text-center py-6 text-lightSilver" data-testid="block-templates-empty">
+            No block templates yet.
+          </div>
+        )}
+        {!blockTemplatesLoading && !blockTemplatesError && blockTemplates.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="block-templates-grid">
+            {blockTemplates.map((bt) => (
+              <div
+                key={bt.id}
+                className="bg-charcoalGray rounded-lg p-4 border border-steelBlue hover:border-electricBlue transition-colors"
+                data-testid="block-template-card"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-pureWhite font-semibold truncate" data-testid="block-template-name">
+                    {bt.name}
+                  </h3>
+                  <span className="text-xs text-lightSilver bg-deepNavy px-2 py-1 rounded ml-2 whitespace-nowrap" data-testid="block-template-repeat">
+                    {bt.repeatCount}×
+                  </span>
+                </div>
+                <div className="text-sm text-softFog mb-3" data-testid="block-template-summary">
+                  {bt.steps.length} step{bt.steps.length !== 1 ? 's' : ''}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate(`/templates/blocks/${bt.id}/edit`)}
+                    className="flex-1 px-3 py-1.5 bg-steelBlue text-pureWhite rounded hover:bg-gray-600 transition-colors text-sm"
+                    data-testid="edit-block-template-button"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteBlockTemplate(bt.id)}
+                    className="flex-1 px-3 py-1.5 bg-red-700 text-pureWhite rounded hover:bg-red-600 transition-colors text-sm"
+                    data-testid="delete-block-template-button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <h2 className="text-xl font-semibold text-pureWhite mb-4" data-testid="activity-templates-heading">
+        Activity Templates
+      </h2>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6" data-testid="template-filters">

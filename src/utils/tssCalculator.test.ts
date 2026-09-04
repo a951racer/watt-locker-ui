@@ -404,3 +404,103 @@ describe('PLAN-046: Repeat-block expansion (expandSegments)', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// PLAN-056 — Canonical Step model: optional name + explicit time|distance
+// ---------------------------------------------------------------------------
+import {
+  resolveDurationType,
+  normalizeSegmentDuration,
+  getSegmentDurationSeconds,
+} from './tssCalculator';
+
+describe('PLAN-056 canonical step model', () => {
+  describe('optional name', () => {
+    it('a step can have no name', () => {
+      const seg: PlanSegment = { type: 'interval', durationSeconds: 300 };
+      expect(seg.name).toBeUndefined();
+      // No name does not affect calculations.
+      expect(getSegmentDurationSeconds(seg)).toBe(300);
+    });
+
+    it('a step can have a name and it round-trips through normalization', () => {
+      const seg: PlanSegment = { name: 'Sweet Spot', type: 'interval', durationSeconds: 600 };
+      const normalized = normalizeSegmentDuration(seg);
+      expect(normalized.name).toBe('Sweet Spot');
+    });
+  });
+
+  describe('resolveDurationType (backward compatibility)', () => {
+    it('treats a legacy segment (no durationType, has durationSeconds) as time', () => {
+      expect(resolveDurationType({ durationSeconds: 300 })).toBe('time');
+    });
+
+    it('treats a segment with only distanceMeters as distance', () => {
+      expect(resolveDurationType({ distanceMeters: 1609 })).toBe('distance');
+    });
+
+    it('respects an explicit durationType', () => {
+      expect(resolveDurationType({ durationType: 'distance', durationSeconds: 300 })).toBe('distance');
+      expect(resolveDurationType({ durationType: 'time', distanceMeters: 1609 })).toBe('time');
+    });
+  });
+
+  describe('normalizeSegmentDuration enforces exactly one duration', () => {
+    it('time step keeps durationSeconds and drops distanceMeters', () => {
+      const out = normalizeSegmentDuration({ type: 'interval', durationType: 'time', durationSeconds: 300, distanceMeters: 5000 });
+      expect(out.durationType).toBe('time');
+      expect(out.durationSeconds).toBe(300);
+      expect(out.distanceMeters).toBeUndefined();
+    });
+
+    it('distance step keeps distanceMeters and drops durationSeconds', () => {
+      const out = normalizeSegmentDuration({ type: 'interval', durationType: 'distance', distanceMeters: 8047, durationSeconds: 300 });
+      expect(out.durationType).toBe('distance');
+      expect(out.distanceMeters).toBe(8047);
+      expect(out.durationSeconds).toBeUndefined();
+    });
+
+    it('legacy time-based step gains an explicit durationType=time without losing its value', () => {
+      const out = normalizeSegmentDuration({ type: 'interval', durationSeconds: 450 });
+      expect(out.durationType).toBe('time');
+      expect(out.durationSeconds).toBe(450);
+      expect(out.distanceMeters).toBeUndefined();
+    });
+  });
+
+  describe('distance steps are structural only (no invented time math)', () => {
+    it('a distance step contributes 0 seconds to duration/TSS/IF', () => {
+      const distanceStep: PlanSegment = { type: 'interval', durationType: 'distance', distanceMeters: 8047, powerMin: 100, powerMax: 100 };
+      expect(getSegmentDurationSeconds(distanceStep)).toBe(0);
+      expect(calculateSegmentTss(distanceStep, 270, 'power_ftp')).toBe(0);
+      expect(calculateTotalDuration([distanceStep])).toBe(0);
+    });
+
+    it('time-based calculations are unchanged when mixed with a distance step', () => {
+      const timeStep: PlanSegment = { type: 'interval', durationType: 'time', durationSeconds: 3600, powerMin: 100, powerMax: 100 };
+      const distanceStep: PlanSegment = { type: 'interval', durationType: 'distance', distanceMeters: 8047, powerMin: 100, powerMax: 100 };
+      // Only the time step counts toward duration.
+      expect(calculateTotalDuration([timeStep, distanceStep])).toBe(3600);
+      // TSS for the time step alone at 100% FTP for 1h ≈ 100.
+      const tss = calculateTotalTss([timeStep, distanceStep], 270, 'power_ftp');
+      expect(tss).not.toBeNull();
+      expect(Math.round(tss as number)).toBe(100);
+    });
+  });
+
+  describe('expandSegments preserves new canonical fields', () => {
+    it('keeps name/durationType/distanceMeters on expanded repeat copies', () => {
+      const segs: PlanSegment[] = [
+        { name: 'Work', type: 'interval', durationType: 'distance', distanceMeters: 8047, repeatId: 'r1', repeatCount: 2 },
+      ];
+      const expanded = expandSegments(segs);
+      expect(expanded).toHaveLength(2);
+      expect(expanded[0].name).toBe('Work');
+      expect(expanded[0].durationType).toBe('distance');
+      expect(expanded[0].distanceMeters).toBe(8047);
+      // Repeat metadata is stripped from expanded copies (existing behavior).
+      expect(expanded[0].repeatId).toBeUndefined();
+      expect(expanded[0].repeatCount).toBeUndefined();
+    });
+  });
+});
